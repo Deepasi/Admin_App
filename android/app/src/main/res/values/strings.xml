@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SCR Agro farm</string>
+    <string name="title_activity_main">SCR Agro farm</string>
+    <string name="package_name">com.SCRagrofarm.Farmapp</string>
+    <string name="custom_url_scheme">com.SCRagrofarm.Farmapp</string>
+</resources>
