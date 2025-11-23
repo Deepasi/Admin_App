@@ -1,0 +1,10 @@
+[33mcommit 00a3ac0d5d6fcc1fb88f6f76f98aea83803760f2[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: shivani <skumari25607@gmail.com>
+
+    Initial commit
+
+src/App.tsx
+src/components/Navbar.tsx
+src/pages/admin/AnalyticsTab.tsx
+src/pages/admin/SalesAnalytics.tsx
+src/pages/admin/UsersTab.tsx

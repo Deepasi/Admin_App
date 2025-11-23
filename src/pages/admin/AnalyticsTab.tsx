@@ -136,7 +136,7 @@ const AnalyticsTab: React.FC = () => {
 
   return (
     <main className="pt-20">
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto px-4 sm:px-0 py-8 pb-24">
         <SalesAnalytics orders={orders} />
       </div>
     </main>

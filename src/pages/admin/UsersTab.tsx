@@ -46,7 +46,7 @@ const UsersTab: React.FC = () => {
 
   return (
     <main className="pt-20">
-      <div className="container mx-auto py-10">
+      <div className="container mx-auto px-4 sm:px-0 py-10 pb-24">
         <div className="bg-gray-200 border border-gray-500 rounded-lg p-2 sm:p-4 bg-white shadow-sm">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 md:mb-6 gap-3">
             <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-800">Users Management</h2>
