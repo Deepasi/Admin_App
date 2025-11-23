@@ -294,32 +294,33 @@ const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
   })();
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Sales Overview */}
-      <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
-        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Sales Overview</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
-          <div className="p-2 sm:p-4 rounded-lg bg-blue-100 border border-blue-300 hover:bg-blue-200 transition">
-            <h4 className="text-xs sm:text-sm font-medium text-blue-600">Total Orders</h4>
-            <p className="text-xl sm:text-2xl font-bold">{orderStats.totalOrders}</p>
-          </div>
-          <div className="p-2 sm:p-4 bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 transition">
-            <h4 className="text-xs sm:text-sm font-medium text-green-600">Total Revenue</h4>
-            <p className="text-xl sm:text-2xl font-bold">₹{orderStats.totalRevenue.toFixed(2)}</p>
-          </div>
-          <div className="p-2 sm:p-4 bg-purple-100 border border-purple-300 rounded-lg hover:bg-purple-200 transition sm:col-span-2 lg:col-span-1">
-            <h4 className="text-xs sm:text-sm font-medium text-purple-600">Average Order Value</h4>
-            <p className="text-xl sm:text-2xl font-bold">₹{orderStats.averageOrderValue.toFixed(2)}</p>
+    <main className="pt-20 min-h-screen bg-sky-50">
+      <div className="space-y-4 sm:space-y-6">
+        {/* Sales Overview */}
+        <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Sales Overview</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+            <div className="p-2 sm:p-4 rounded-lg bg-blue-100 border border-blue-300 hover:bg-blue-200 transition">
+              <h4 className="text-xs sm:text-sm font-medium text-blue-600">Total Orders</h4>
+              <p className="text-xl sm:text-2xl font-bold">{orderStats.totalOrders}</p>
+            </div>
+            <div className="p-2 sm:p-4 bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 transition">
+              <h4 className="text-xs sm:text-sm font-medium text-green-600">Total Revenue</h4>
+              <p className="text-xl sm:text-2xl font-bold">₹{orderStats.totalRevenue.toFixed(2)}</p>
+            </div>
+            <div className="p-2 sm:p-4 bg-purple-100 border border-purple-300 rounded-lg hover:bg-purple-200 transition sm:col-span-2 lg:col-span-1">
+              <h4 className="text-xs sm:text-sm font-medium text-purple-600">Average Order Value</h4>
+              <p className="text-xl sm:text-2xl font-bold">₹{orderStats.averageOrderValue.toFixed(2)}</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Sales Trend */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Sales Trend</h3>
+        {/* Sales Trend */}
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Sales Trend</h3>
 
-          {/* Dropdown to switch range
+            {/* Dropdown to switch range
           <select
             value={range}
             onChange={(e) => setRange(e.target.value as any)}
@@ -331,144 +332,145 @@ const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
             <option value="half-yearly">Half-Yearly</option>
             <option value="yearly">Yearly</option>
           </select> */}
-        </div>
+          </div>
 
-        {/* The container height is maintained for better mobile visibility */}
-        <div className="w-full min-h-[300px] sm:min-h-[350px] lg:min-h-[400px]">
-          <Line data={dynamicChart.data} options={dynamicChart.options} />
-        </div>
+          {/* The container height is maintained for better mobile visibility */}
+          <div className="w-full min-h-[300px] sm:min-h-[350px] lg:min-h-[400px]">
+            <Line data={dynamicChart.data} options={dynamicChart.options} />
+          </div>
 
-        {/* --- NEW BUTTON FOR DETAILED ANALYSIS --- */}
-        <div className="mt-4 pt-4 border-t border-gray-200 flex justify-center sm:justify-end">
-          <button
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out text-sm"
-          >
-            View Detailed Analysis
-          </button>
-        </div>
-
-        {/* Modal for Detailed Analysis */}
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div
-              className="fixed inset-0 bg-black opacity-50"
-              onClick={() => setIsModalOpen(false)}
-            />
-
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="bg-white rounded-lg shadow-lg z-60 max-w-2xl w-full mx-4 p-6 relative"
+          {/* --- NEW BUTTON FOR DETAILED ANALYSIS --- */}
+          <div className="mt-4 pt-4 border-t border-gray-200 flex justify-center sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out text-sm"
             >
-              <h4 className="text-lg font-semibold mb-4">Detailed Sales Analysis</h4>
+              View Detailed Analysis
+            </button>
+          </div>
 
-              {/* ---- FILTER DROPDOWN ---- */}
-              <div className="mb-4">
-                <label className="text-sm font-medium">Select Range</label>
-                <select
-                  value={range}
-                  onChange={(e) => setRange(e.target.value as any)}
-                  className="w-full mt-1 p-2 border border-gray-300 rounded-md"
-                >
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="half-yearly">Half Yearly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </div>
+          {/* Modal for Detailed Analysis */}
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div
+                className="fixed inset-0 bg-black opacity-50"
+                onClick={() => setIsModalOpen(false)}
+              />
 
-              {/* ---- SALES CHART ---- */}
-              <div className="w-full min-h-[300px] sm:min-h-[350px] mb-6">
-                <Line data={dynamicChart.data} options={dynamicChart.options} />
-              </div>
+              <div
+                role="dialog"
+                aria-modal="true"
+                className="bg-white rounded-lg shadow-lg z-60 max-w-2xl w-full mx-4 p-6 relative"
+              >
+                <h4 className="text-lg font-semibold mb-4">Detailed Sales Analysis</h4>
 
-              {/* ---- PEAK MONTH / HOURS ---- */}
-              <div className="p-4 bg-gray-50 rounded-lg border mb-4">
-                <h5 className="font-semibold text-gray-700 mb-2">Insights</h5>
+                {/* ---- FILTER DROPDOWN ---- */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium">Select Range</label>
+                  <select
+                    value={range}
+                    onChange={(e) => setRange(e.target.value as any)}
+                    className="w-full mt-1 p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="half-yearly">Half Yearly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
 
-                <p className="text-sm text-gray-600">
-                  📌 <b>Peak Period:</b> {peakPeriod}
-                </p>
-                {/* <p className="text-sm text-gray-600">
+                {/* ---- SALES CHART ---- */}
+                <div className="w-full min-h-[300px] sm:min-h-[350px] mb-6">
+                  <Line data={dynamicChart.data} options={dynamicChart.options} />
+                </div>
+
+                {/* ---- PEAK MONTH / HOURS ---- */}
+                <div className="p-4 bg-gray-50 rounded-lg border mb-4">
+                  <h5 className="font-semibold text-gray-700 mb-2">Insights</h5>
+
+                  <p className="text-sm text-gray-600">
+                    📌 <b>Peak Period:</b> {peakPeriod}
+                  </p>
+                  {/* <p className="text-sm text-gray-600">
                   🕒 <b>Peak Hour:</b> {peakHour}:00 – {peakHour + 1}:00
                 </p> */}
-              </div>
+                </div>
 
-              {/* CLOSE BUTTON */}
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
-                >
-                  Close
-                </button>
+                {/* CLOSE BUTTON */}
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Quick Stats */}
-      <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
-        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Stats</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-200">
-            <div className="text-xl sm:text-2xl font-bold text-indigo-600">{orders.filter(o => o.status === 'completed').length}</div>
-            <div className="text-xs sm:text-sm text-indigo-600">Completed Orders</div>
-          </div>
-          <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200">
-            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</div>
-            <div className="text-xs sm:text-sm text-yellow-600">Pending Orders</div>
-          </div>
-          <div className="text-center p-2 bg-red-50 rounded-lg border border-red-200">
-            <div className="text-xl sm:text-2xl font-bold text-red-600">{orders.filter(o => o.status === 'cancelled').length}</div>
-            <div className="text-xs sm:text-sm text-red-600">Cancelled Orders</div>
-          </div>
-          <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
-            <div className="text-xl sm:text-2xl font-bold text-green-600">{orderStats.deliveredOrdersCount}</div>
-            <div className="text-xs sm:text-sm text-green-600">Delivered Orders</div>
-          </div>
-        </div>
-      </div>
-      {/* Recent Orders */}
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
-        <h3 className="text-lg font-semibold mb-4">Recent Orders</h3>
-        <div className="space-y-2">
-          {orders.slice(0, 5).map((order) => (
-            <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-              <div className="flex-1">
-                <div className="font-medium text-sm">
-                  Order #{order.order_number || order.id.slice(0, 8)}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {order.profiles?.name || (order as any).customer_name || 'Unknown Customer'}
-                </div>
-                <div className="text-xs text-gray-400">
-                  {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-semibold">₹{order.total?.toFixed(2) || '0.00'}</div>
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                  }`}>
-                  {order.status}
-                </span>
-              </div>
+        {/* Quick Stats */}
+        <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Stats</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-200">
+              <div className="text-xl sm:text-2xl font-bold text-indigo-600">{orders.filter(o => o.status === 'completed').length}</div>
+              <div className="text-xs sm:text-sm text-indigo-600">Completed Orders</div>
             </div>
-          ))}
-        </div>
-        {orders.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No orders found to display analytics.
+            <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="text-xl sm:text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</div>
+              <div className="text-xs sm:text-sm text-yellow-600">Pending Orders</div>
+            </div>
+            <div className="text-center p-2 bg-red-50 rounded-lg border border-red-200">
+              <div className="text-xl sm:text-2xl font-bold text-red-600">{orders.filter(o => o.status === 'cancelled').length}</div>
+              <div className="text-xs sm:text-sm text-red-600">Cancelled Orders</div>
+            </div>
+            <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+              <div className="text-xl sm:text-2xl font-bold text-green-600">{orderStats.deliveredOrdersCount}</div>
+              <div className="text-xs sm:text-sm text-green-600">Delivered Orders</div>
+            </div>
           </div>
-        )}
+        </div>
+        {/* Recent Orders */}
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+          <h3 className="text-lg font-semibold mb-4">Recent Orders</h3>
+          <div className="space-y-2">
+            {orders.slice(0, 5).map((order) => (
+              <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <div className="flex-1">
+                  <div className="font-medium text-sm">
+                    Order #{order.order_number || order.id.slice(0, 8)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {order.profiles?.name || (order as any).customer_name || 'Unknown Customer'}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold">₹{order.total?.toFixed(2) || '0.00'}</div>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`}>
+                    {order.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {orders.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No orders found to display analytics.
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </main>
   );
 };
 
