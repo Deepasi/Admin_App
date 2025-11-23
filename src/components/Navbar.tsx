@@ -56,6 +56,7 @@ const Navbar = () => {
     { title: 'Order History', path: '/admin/orders' },
     { title: 'Sales Analytics', path: '/admin/sales' },
     { title: 'Users', path: '/admin/users' },
+    { title: 'Delivery Assign', path: '/admin/delivery' },
   ];
 
   return (
