@@ -70,6 +70,8 @@ const Navbar = () => {
   const adminMenuItems = [
     { title: 'Stock', path: '/admin/products' },
     { title: 'Order History', path: '/admin/orders' },
+    { title: 'Sales Analytics', path: '/admin/sales' },
+    { title: 'Users', path: '/admin/users' },
   ];
 
   return (
@@ -94,7 +96,7 @@ const Navbar = () => {
             <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
               {/* Public menu items - always visible */}
               {publicMenuItems.map((item) => (
-                <Link 
+                <Link
                   key={item.title}
                   to={item.path}
                   className="px-3 py-2 text-sm font-medium transition-colors rounded-md hover:bg-brand-cream hover:text-brand-red"
@@ -176,16 +178,13 @@ const Navbar = () => {
                     {/* Mobile menu items for admin */}
                     {user && isAdmin && (
                       <>
-                        <DropdownMenuItem asChild>
-                          <Link to="/admin/products" className="flex items-center">
-                            Stock
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link to="/admin/orders" className="flex items-center">
-                            Order History
-                          </Link>
-                        </DropdownMenuItem>
+                        {adminMenuItems.map((item) => (
+                          <DropdownMenuItem key={item.title} asChild>
+                            <Link to={item.path} className="flex items-center">
+                              {item.title}
+                            </Link>
+                          </DropdownMenuItem>
+                        ))}
                         <DropdownMenuSeparator />
                       </>
                     )}
