@@ -54,10 +54,12 @@ const Navbar = () => {
   const adminMenuItems = [
     { title: 'Stock', path: '/admin/products' },
     { title: 'Order History', path: '/admin/orders' },
+    { title: 'Sales Analytics', path: '/admin/sales' },
+    { title: 'Users', path: '/admin/users' },
   ];
 
   return (
-    <nav 
+    <nav
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         isScrolled ? 'bg-white/80 backdrop-blur-lg shadow-md' : 'bg-transparent'
@@ -77,7 +79,7 @@ const Navbar = () => {
           <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
             {/* Public menu items - always visible */}
             {publicMenuItems.map((item) => (
-              <Link 
+              <Link
                 key={item.title}
                 to={item.path}
                 className="px-3 py-2 text-sm font-medium transition-colors rounded-md hover:bg-brand-cream hover:text-brand-red"
@@ -88,7 +90,7 @@ const Navbar = () => {
 
             {/* Admin-only menu items - only visible when user is logged in and is admin */}
             {user && isAdmin && adminMenuItems.map((item) => (
-              <Link 
+              <Link
                 key={item.title}
                 to={item.path}
                 className="px-3 py-2 text-sm font-medium transition-colors rounded-md hover:bg-brand-cream hover:text-brand-red"
@@ -96,7 +98,7 @@ const Navbar = () => {
                 {item.title}
               </Link>
             ))}
-            
+
             {/* Authentication */}
             {user ? (
               <DropdownMenu>
@@ -115,17 +117,17 @@ const Navbar = () => {
                       <Link to="/user-profile" className="flex items-center">
                         <User className="h-4 w-4 mr-2" />
                         My Profile
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    {isAdmin && (
-                      <DropdownMenuItem asChild>
-                        <Link to="/user-profile" className="flex items-center">
-                          <User className="h-4 w-4 mr-2" />
-                          Profile
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/user-profile" className="flex items-center">
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
@@ -137,7 +139,7 @@ const Navbar = () => {
                 <Button className="bg-brand-red hover:bg-brand-red/90 text-white" asChild>
                   <Link to="/auth">Sign Up</Link>
                 </Button>
-                
+
               </div>
             )}
           </div>
@@ -157,24 +159,21 @@ const Navbar = () => {
                     <span className="text-sm truncate max-w-[150px]">{user.email}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  
+
                   {/* Mobile menu items for admin */}
                   {user && isAdmin && (
                     <>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin/products" className="flex items-center">
-                          Stock
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin/orders" className="flex items-center">
-                          Order History
-                        </Link>
-                      </DropdownMenuItem>
+                      {adminMenuItems.map((item) => (
+                        <DropdownMenuItem key={item.title} asChild>
+                          <Link to={item.path} className="flex items-center">
+                            {item.title}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  
+
                   {!isAdmin && (
                     <DropdownMenuItem asChild>
                       <Link to="/user-profile" className="flex items-center">

@@ -1,8 +1,15 @@
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
-import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Title, Tooltip } from 'chart.js';
-import { format } from 'date-fns';
-import React from 'react';
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip
+} from 'chart.js';
+import { format, parseISO } from 'date-fns';
+import React, { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 
 // Initialize Chart.js
@@ -15,38 +22,10 @@ interface Order {
   created_at: string;
   status: string;
   total: number;
-  user_id: string;
-  updated_at: string;
-  order_number?: string;
-  payment_method?: string;
-  customer_name?: string;
-  customer_phone?: string;
-  customer_email?: string;
-  delivery_address?: string;
-  delivery_city?: string;
-  delivery_state?: string;
-  delivery_zip_code?: string;
-  payment_id?: string;
-  payment_order_id?: string;
-  payment_signature?: string;
-  admin_visible?: boolean;
   cancelled_at?: string;
-  cancellation_reason?: string;
-  cancelled_by?: string;
-  profiles?: {
-    name?: string;
-    email?: string;
-  };
-  order_items?: Array<{
-    id: string;
-    quantity: number;
-    price: number;
-    products?: {
-      title: string;
-      price: string;
-      image: string;
-    };
-  }>;
+  order_number?: string;
+  profiles?: { name?: string; email?: string };
+  // other optional fields
 }
 
 interface SalesAnalyticsProps {
@@ -54,21 +33,36 @@ interface SalesAnalyticsProps {
 }
 
 const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
-  // Calculate sales data
+  // Calculate sales per month
   const calculateSalesData = (orders: Order[]) => {
     const salesByMonth: Record<string, number> = {};
     orders.forEach(order => {
-      const month = format(new Date(order.created_at), 'MMM yyyy');
-      salesByMonth[month] = (salesByMonth[month] || 0) + (order.total || 0);
+      // Ensure created_at is valid before processing
+      if (order.created_at) {
+        const monthKey = format(new Date(order.created_at), 'yyyy-MM');
+        salesByMonth[monthKey] = (salesByMonth[monthKey] || 0) + (order.total || 0);
+      }
     });
 
-    const labels = Object.keys(salesByMonth);
-    const data = Object.values(salesByMonth);
+    // Generate last 4 months including current month
+    const months: string[] = [];
+    const current = new Date();
+    for (let i = 3; i >= 0; i--) {
+      const d = new Date(current.getFullYear(), current.getMonth() - i, 1);
+      months.push(format(d, 'yyyy-MM'));
+    }
 
-    return { labels, data };
+    // --- MOBILE IMPROVEMENT: Simplify labels to 'MMM' (e.g., 'Nov') ---
+    const labels = months.map(m => format(parseISO(m + '-01'), 'MMM'));
+
+    const data = months.map(m => salesByMonth[m] || 0);
+
+    const peakIndex = data.length ? data.indexOf(Math.max(...data)) : 0;
+
+    return { labels, data, peakIndex };
   };
 
-  // Calculate order statistics
+  // Order statistics
   const calculateOrderStats = (orders: Order[]) => {
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
@@ -79,259 +73,771 @@ const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
       return acc;
     }, {} as Record<string, number>);
 
-    return { totalOrders, totalRevenue, averageOrderValue, statusCounts };
+    const deliveredOrdersCount = orders.filter(
+      o => (o.status === 'completed' || o.status === 'delivered') && !o.cancelled_at
+    ).length;
+    return { totalOrders, totalRevenue, averageOrderValue, statusCounts, deliveredOrdersCount };
   };
 
   const salesData = calculateSalesData(orders);
   const orderStats = calculateOrderStats(orders);
 
-  const lineChartData = {
-    labels: salesData.labels,
-    datasets: [
-      {
-        label: 'Monthly Sales',
-        data: salesData.data,
-        fill: false,
-        borderColor: 'rgb(239, 68, 68)',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        tension: 0.1,
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // NEW: range state + dynamic chart state
+  const [range, setRange] = useState<'monthly' | 'quarterly' | 'half-yearly' | 'yearly'>('monthly');
+  const [dynamicChart, setDynamicChart] = useState<any>({
+    data: {
+      labels: salesData.labels,
+      datasets: [
+        {
+          label: 'Monthly Sales',
+          data: salesData.data,
+          fill: false,
+          borderColor: 'rgb(75, 192, 192)',
+          tension: 0.2,
+          pointBackgroundColor: salesData.data.map((_, i) =>
+            i === salesData.peakIndex ? 'rgb(255, 99, 132)' : 'rgb(75, 192, 192)'
+          ),
+          pointRadius: salesData.data.map((_, i) => (i === salesData.peakIndex ? 7 : 4)),
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' as const, labels: { font: { size: 10 } } },
+        title: { display: true, text: 'Monthly Sales Trend', font: { size: 14 } },
+        tooltip: {
+          callbacks: {
+            label: function (context: any) {
+              return `₹${context.raw.toFixed(2)}`;
+            }
+          }
+        }
       },
-    ],
+      scales: {
+        y: { beginAtZero: true, ticks: { font: { size: 10 } } },
+        x: { ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 45 } }
+      }
+    }
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsModalOpen(false);
+    };
+    if (isModalOpen) window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isModalOpen]);
+
+  // Default chart options used as base
+  const baseChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false, // Allows chart to respect container height
+    plugins: {
+      legend: { position: 'top' as const, labels: { font: { size: 10 } } },
+      title: { display: true, text: 'Sales Trend', font: { size: 14 } },
+      tooltip: {
+        callbacks: {
+          label: function (context: any) {
+            return `₹${context.raw.toFixed(2)}`;
+          }
+        }
+      }
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { font: { size: 10 } } },
+      x: { ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 45 } }
+    }
   };
 
-  const lineChartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top' as const,
+  // Recompute dynamicChart whenever range or orders change
+  useEffect(() => {
+    // safety: if no orders, still show labels/zeros for the selected range
+    let labels: string[] = [];
+    let values: number[] = [];
+
+    if (range === 'monthly') {
+      labels = salesData.labels;
+      values = salesData.data;
+    }
+
+    if (range === 'quarterly') {
+      const q = [0, 0, 0, 0];
+      orders.forEach(order => {
+        if (!order.created_at) return;
+        const month = new Date(order.created_at).getMonth();
+        const quarter = Math.floor(month / 3); // 0..3
+        q[quarter] += order.total || 0;
+      });
+      labels = ['Q1', 'Q2', 'Q3', 'Q4'];
+      values = q;
+      // if all zeros but there are no orders, leave it zero - that's fine
+    }
+
+    if (range === 'half-yearly') {
+      const h = [0, 0];
+      orders.forEach(order => {
+        if (!order.created_at) return;
+        const month = new Date(order.created_at).getMonth();
+        if (month < 6) h[0] += order.total || 0; // Jan–Jun
+        else h[1] += order.total || 0; // Jul–Dec
+      });
+      labels = ['H1 (Jan–Jun)', 'H2 (Jul–Dec)'];
+      values = h;
+    }
+
+    // ========== YEARLY (Last 3 Years) ==========
+    if (range === "yearly") {
+      const currentYear = new Date().getFullYear();
+
+      // Generate last 3 years including current year
+      const yearLabels = [
+        (currentYear - 2).toString(),
+        (currentYear - 1).toString(),
+        currentYear.toString(),
+      ];
+
+      const yearTotals: Record<string, number> = {
+        [currentYear - 2]: 0,
+        [currentYear - 1]: 0,
+        [currentYear]: 0,
+      };
+
+      // Sum totals by year
+      orders.forEach(order => {
+        const orderYear = new Date(order.created_at).getFullYear();
+        if (yearTotals[orderYear] !== undefined) {
+          yearTotals[orderYear] += order.total || 0;
+        }
+      });
+
+      labels = yearLabels;
+      values = yearLabels.map(y => yearTotals[Number(y)]);
+    }
+
+
+    // ensure labels/values are defined
+    if (!labels || labels.length === 0) {
+      labels = salesData.labels.length ? salesData.labels : ['No data'];
+      values = salesData.data.length ? salesData.data : [0];
+    }
+
+    // compute peak to highlight
+    const peakIndex = values.length ? values.indexOf(Math.max(...values)) : 0;
+
+    // dataset styling with highlighted peak
+    const dataset = {
+      label: `${range[0].toUpperCase() + range.slice(1)} Sales`,
+      data: values,
+      fill: false,
+      borderColor: 'rgb(75, 192, 192)',
+      tension: 0.2,
+      pointBackgroundColor: values.map((_, i) =>
+        i === peakIndex ? 'rgb(255, 99, 132)' : 'rgb(75, 192, 192)'
+      ),
+      pointRadius: values.map((_, i) => (i === peakIndex ? 7 : 4))
+    };
+
+    // set dynamic chart
+    setDynamicChart({
+      data: {
+        labels,
+        datasets: [dataset]
       },
-      title: {
-        display: true,
-        text: 'Monthly Sales Trend',
-      },
-    },
-  };
+      options: {
+        ...baseChartOptions,
+        plugins: {
+          ...baseChartOptions.plugins,
+          title: {
+            display: true,
+            text:
+              range === 'monthly'
+                ? 'Monthly Sales Trend'
+                : range === 'quarterly'
+                  ? 'Quarterly Sales Trend'
+                  : range === 'half-yearly'
+                    ? 'Half-Yearly Sales Trend'
+                    : 'Yearly Sales Trend',
+            font: { size: 14 }
+          }
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range, orders]); // intentionally only depend on range and orders
+
+  // Peak period derived from current dynamicChart (first non-empty label)
+  const peakPeriod = dynamicChart?.data?.labels?.[dynamicChart?.data?.datasets?.[0]?.data?.indexOf(Math.max(...(dynamicChart?.data?.datasets?.[0]?.data || [0])))] || 'N/A';
+
+  // Compute peak hour (most orders by hour) as a simple heuristic
+  const peakHour = (() => {
+    const hourCounts: Record<number, number> = {};
+    orders.forEach(o => {
+      if (o.created_at) {
+        const h = new Date(o.created_at).getHours();
+        hourCounts[h] = (hourCounts[h] || 0) + 1;
+      }
+    });
+    let maxH = 0;
+    let maxCount = 0;
+    Object.keys(hourCounts).forEach(k => {
+      const h = Number(k);
+      if (hourCounts[h] > maxCount) {
+        maxCount = hourCounts[h];
+        maxH = h;
+      }
+    });
+    return maxCount > 0 ? maxH : 0;
+  })();
 
   return (
-    <main className="pt-20 bg-slate-50 min-h-screen">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-        
-        {/* Header Section */}
-        <header className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Sales Analytics</h1>
-              <p className="text-slate-600 mt-2 text-sm sm:text-base">
-                Comprehensive overview of your store performance and sales trends
-              </p>
-            </div>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Sales Overview */}
+      <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Sales Overview</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+          <div className="p-2 sm:p-4 rounded-lg bg-blue-100 border border-blue-300 hover:bg-blue-200 transition">
+            <h4 className="text-xs sm:text-sm font-medium text-blue-600">Total Orders</h4>
+            <p className="text-xl sm:text-2xl font-bold">{orderStats.totalOrders}</p>
           </div>
-        </header>
-
-        {/* Sales Overview Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-slate-500 font-medium mb-1">Total Orders</div>
-                <div className="text-3xl font-bold text-slate-900">{orderStats.totalOrders}</div>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-            </div>
+          <div className="p-2 sm:p-4 bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 transition">
+            <h4 className="text-xs sm:text-sm font-medium text-green-600">Total Revenue</h4>
+            <p className="text-xl sm:text-2xl font-bold">₹{orderStats.totalRevenue.toFixed(2)}</p>
           </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-slate-500 font-medium mb-1">Total Revenue</div>
-                <div className="text-3xl font-bold text-slate-900">₹{orderStats.totalRevenue.toLocaleString()}</div>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
-              </div>
-            </div>
+          <div className="p-2 sm:p-4 bg-purple-100 border border-purple-300 rounded-lg hover:bg-purple-200 transition sm:col-span-2 lg:col-span-1">
+            <h4 className="text-xs sm:text-sm font-medium text-purple-600">Average Order Value</h4>
+            <p className="text-xl sm:text-2xl font-bold">₹{orderStats.averageOrderValue.toFixed(2)}</p>
           </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-slate-500 font-medium mb-1">Average Order Value</div>
-                <div className="text-3xl font-bold text-slate-900">₹{orderStats.averageOrderValue.toFixed(2)}</div>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-full">
-                <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Sales Trend Section */}
-        <section className="mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-            <h2 className="text-xl font-semibold text-slate-900 mb-6">Sales Trend</h2>
-            <div className="h-[300px]">
-              <Line data={lineChartData} options={lineChartOptions} />
-            </div>
-          </div>
-        </section>
-
-        {/* Order Status Distribution */}
-        <section className="mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-            <h3 className="text-xl font-semibold text-slate-900 mb-6">Order Status Distribution</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {Object.entries(orderStats.statusCounts).map(([status, count]) => (
-                <div
-                  key={status} 
-                  className="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200"
-                >
-                  <h4 className="text-sm font-medium text-slate-700 capitalize mb-2">{status}</h4>
-                  <p className="text-2xl font-bold text-slate-900">{count}</p> 
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Recent Orders */}
-        <section className="mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
-            <h3 className="text-xl font-semibold text-slate-900 mb-6">Recent Orders</h3>
-            <div className="space-y-3">
-              {orders.slice(0, 5).map((order) => (
-                <div key={order.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">
-                  <div className="flex-1">
-                    <div className="font-medium text-slate-900">
-                      Order #{order.order_number || order.id.slice(0, 8)}
-                    </div>
-                    <div className="text-sm text-slate-600 mt-1">
-                      {order.profiles?.name || order.customer_name || 'Unknown Customer'}
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-slate-900">₹{order.total?.toFixed(2) || '0.00'}</div>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mt-1 ${
-                      order.status === 'completed' || order.status === 'delivered' ? 'bg-green-100 text-green-800 border border-green-200' :
-                      order.status === 'pending' || order.status === 'processing' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
-                      order.status === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
-                      'bg-slate-100 text-slate-800 border border-slate-200'
-                    }`}>
-                      {order.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {orders.length === 0 && (
-              <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="text-lg font-medium mb-2">No orders found</div>
-                <div className="text-sm">Start selling to see analytics data</div>
-              </div>
-            )}
-          </div>
-        </section>
+        </div>
       </div>
-    </main>
+
+      {/* Sales Trend */}
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Sales Trend</h3>
+
+          {/* Dropdown to switch range
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value as any)}
+            className="border border-gray-300 rounded-md p-2 text-sm"
+            aria-label="Select sales range"
+          >
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="half-yearly">Half-Yearly</option>
+            <option value="yearly">Yearly</option>
+          </select> */}
+        </div>
+
+        {/* The container height is maintained for better mobile visibility */}
+        <div className="w-full min-h-[300px] sm:min-h-[350px] lg:min-h-[400px]">
+          <Line data={dynamicChart.data} options={dynamicChart.options} />
+        </div>
+
+        {/* --- NEW BUTTON FOR DETAILED ANALYSIS --- */}
+        <div className="mt-4 pt-4 border-t border-gray-200 flex justify-center sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out text-sm"
+          >
+            View Detailed Analysis
+          </button>
+        </div>
+
+        {/* Modal for Detailed Analysis */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="fixed inset-0 bg-black opacity-50"
+              onClick={() => setIsModalOpen(false)}
+            />
+
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="bg-white rounded-lg shadow-lg z-60 max-w-2xl w-full mx-4 p-6 relative"
+            >
+              <h4 className="text-lg font-semibold mb-4">Detailed Sales Analysis</h4>
+
+              {/* ---- FILTER DROPDOWN ---- */}
+              <div className="mb-4">
+                <label className="text-sm font-medium">Select Range</label>
+                <select
+                  value={range}
+                  onChange={(e) => setRange(e.target.value as any)}
+                  className="w-full mt-1 p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="half-yearly">Half Yearly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+
+              {/* ---- SALES CHART ---- */}
+              <div className="w-full min-h-[300px] sm:min-h-[350px] mb-6">
+                <Line data={dynamicChart.data} options={dynamicChart.options} />
+              </div>
+
+              {/* ---- PEAK MONTH / HOURS ---- */}
+              <div className="p-4 bg-gray-50 rounded-lg border mb-4">
+                <h5 className="font-semibold text-gray-700 mb-2">Insights</h5>
+
+                <p className="text-sm text-gray-600">
+                  📌 <b>Peak Period:</b> {peakPeriod}
+                </p>
+                {/* <p className="text-sm text-gray-600">
+                  🕒 <b>Peak Hour:</b> {peakHour}:00 – {peakHour + 1}:00
+                </p> */}
+              </div>
+
+              {/* CLOSE BUTTON */}
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick Stats */}
+      <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Stats</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-200">
+            <div className="text-xl sm:text-2xl font-bold text-indigo-600">{orders.filter(o => o.status === 'completed').length}</div>
+            <div className="text-xs sm:text-sm text-indigo-600">Completed Orders</div>
+          </div>
+          <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</div>
+            <div className="text-xs sm:text-sm text-yellow-600">Pending Orders</div>
+          </div>
+          <div className="text-center p-2 bg-red-50 rounded-lg border border-red-200">
+            <div className="text-xl sm:text-2xl font-bold text-red-600">{orders.filter(o => o.status === 'cancelled').length}</div>
+            <div className="text-xs sm:text-sm text-red-600">Cancelled Orders</div>
+          </div>
+          <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{orderStats.deliveredOrdersCount}</div>
+            <div className="text-xs sm:text-sm text-green-600">Delivered Orders</div>
+          </div>
+        </div>
+      </div>
+      {/* Recent Orders */}
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+        <h3 className="text-lg font-semibold mb-4">Recent Orders</h3>
+        <div className="space-y-2">
+          {orders.slice(0, 5).map((order) => (
+            <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+              <div className="flex-1">
+                <div className="font-medium text-sm">
+                  Order #{order.order_number || order.id.slice(0, 8)}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {order.profiles?.name || (order as any).customer_name || 'Unknown Customer'}
+                </div>
+                <div className="text-xs text-gray-400">
+                  {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold">₹{order.total?.toFixed(2) || '0.00'}</div>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                  }`}>
+                  {order.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        {orders.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No orders found to display analytics.
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-// AnalyticsTab component that fetches data and renders SalesAnalytics
-const AnalyticsTab: React.FC = () => {
-  const { data: orders = [], isLoading: ordersLoading, error: ordersError } = useQuery<Order[]>({
-    queryKey: ['admin-orders-analytics'],
-    queryFn: async () => {
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+export default SalesAnalytics;
 
-      if (ordersError) throw ordersError;
 
-      const userIds = [...new Set(ordersData.map(order => order.user_id))];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, name, email')
-        .in('id', userIds);
 
-      const ordersWithProfiles = ordersData.map(order => ({
-        ...order,
-        profiles: profilesData?.find(profile => profile.id === order.user_id)
-      }));
 
-      const ordersWithItems = await Promise.all(
-        (ordersWithProfiles || []).map(async (order) => {
-          const { data: itemsData, error: itemsError } = await supabase
-            .from('order_items')
-            .select(`
-              *,
-              products (
-                title, price, image
-              )
-            `)
-            .eq('order_id', order.id);
 
-          return {
-            ...order,
-            order_items: itemsData || []
-          };
-        })
-      );
 
-      return ordersWithItems as Order[];
-    },
-    retry: 3,
-    retryDelay: 1000,
-  });
 
-  if (ordersLoading) {
-    return (
-      <div className="pt-20 bg-slate-50 min-h-screen">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-            <div className="text-center py-12">
-              <div className="inline-flex items-center px-6 py-3 font-semibold leading-6 text-sm shadow rounded-lg text-blue-600 bg-blue-50 border border-blue-200 transition ease-in-out duration-150">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Loading analytics data...
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+// import { CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Title, Tooltip } from 'chart.js';
+// import { format, parseISO } from 'date-fns';
+// import React, { useEffect, useState } from 'react';
+// import { Line } from 'react-chartjs-2';
 
-  if (ordersError) {
-    return (
-      <div className="pt-20 bg-slate-50 min-h-screen">
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-            <div className="text-center py-12">
-              <div className="text-red-700 bg-red-50 border border-red-200 rounded-lg p-6 inline-block max-w-md">
-                <div className="font-semibold mb-2">Error loading analytics</div>
-                <div className="text-sm text-red-600">{ordersError.message}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+// // Initialize Chart.js
+// ChartJS.register(
+//   CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend
+// );
 
-  return <SalesAnalytics orders={orders} />;
-};
+// interface Order {
+//   id: string;
+//   created_at: string;
+//   status: string;
+//   total: number;
+//   cancelled_at?: string;
+//   order_number?: string;
+//   profiles?: { name?: string; email?: string };
+//   // other optional fields
+// }
 
-export default AnalyticsTab;
+// interface SalesAnalyticsProps {
+//   orders: Order[];
+// }
+
+// const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
+//   // Calculate sales per month
+//   const calculateSalesData = (orders: Order[]) => {
+//     const salesByMonth: Record<string, number> = {};
+//     orders.forEach(order => {
+//       // Ensure created_at is valid before processing
+//       if (order.created_at) {
+//         const monthKey = format(new Date(order.created_at), 'yyyy-MM');
+//         salesByMonth[monthKey] = (salesByMonth[monthKey] || 0) + (order.total || 0);
+//       }
+//     });
+
+//     // Generate last 4 months including current month
+//     const months: string[] = [];
+//     const current = new Date();
+//     for (let i = 3; i >= 0; i--) {
+//       const d = new Date(current.getFullYear(), current.getMonth() - i, 1);
+//       months.push(format(d, 'yyyy-MM'));
+//     }
+
+//     // --- MOBILE IMPROVEMENT: Simplify labels to 'MMM' (e.g., 'Nov') ---
+//     const labels = months.map(m => format(parseISO(m + '-01'), 'MMM'));
+
+//     const data = months.map(m => salesByMonth[m] || 0);
+
+//     const peakIndex = data.indexOf(Math.max(...data));
+
+//     return { labels, data, peakIndex };
+//   };
+
+//   // Order statistics
+//   const calculateOrderStats = (orders: Order[]) => {
+//     const totalOrders = orders.length;
+//     const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+//     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+//     const statusCounts = orders.reduce((acc, order) => {
+//       acc[order.status] = (acc[order.status] || 0) + 1;
+//       return acc;
+//     }, {} as Record<string, number>);
+
+//     const deliveredOrdersCount = orders.filter(
+//       o => (o.status === 'completed' || o.status === 'delivered') && !o.cancelled_at
+//     ).length;
+//     return { totalOrders, totalRevenue, averageOrderValue, statusCounts, deliveredOrdersCount };
+//   };
+
+//   const salesData = calculateSalesData(orders);
+//   const orderStats = calculateOrderStats(orders);
+
+//   const [isModalOpen, setIsModalOpen] = useState(false);
+//   const [selectedRange, setSelectedRange] = useState("monthly");
+
+
+//   // Basic detailedChart fallback (will re-render when orders change)
+//   const detailedChart = {
+//     data: {
+//       labels: salesData.labels,
+//       datasets: [
+//         {
+//           label: 'Detailed Sales',
+//           data: salesData.data,
+//           fill: false,
+//           borderColor: 'rgb(99,102,241)',
+//           tension: 0.2,
+//         },
+//       ],
+//     },
+//     options: {
+//       responsive: true,
+//       maintainAspectRatio: false,
+//       plugins: {
+//         legend: { display: false },
+//       },
+//     },
+//   };
+
+//   // Peak period derived from salesData
+//   const peakPeriod = salesData.labels[salesData.peakIndex] || 'N/A';
+
+//   // Compute peak hour (most orders by hour) as a simple heuristic
+//   const peakHour = (() => {
+//     const hourCounts: Record<number, number> = {};
+//     orders.forEach(o => {
+//       if (o.created_at) {
+//         const h = new Date(o.created_at).getHours();
+//         hourCounts[h] = (hourCounts[h] || 0) + 1;
+//       }
+//     });
+//     let maxH = 0;
+//     let maxCount = 0;
+//     Object.keys(hourCounts).forEach(k => {
+//       const h = Number(k);
+//       if (hourCounts[h] > maxCount) {
+//         maxCount = hourCounts[h];
+//         maxH = h;
+//       }
+//     });
+//     return maxCount > 0 ? maxH : 0;
+//   })();
+
+//   useEffect(() => {
+//     const onKey = (e: KeyboardEvent) => {
+//       if (e.key === 'Escape') setIsModalOpen(false);
+//     };
+//     if (isModalOpen) window.addEventListener('keydown', onKey);
+//     return () => window.removeEventListener('keydown', onKey);
+//   }, [isModalOpen]);
+
+//   const lineChartData = {
+//     labels: salesData.labels,
+//     datasets: [
+//       {
+//         label: 'Monthly Sales',
+//         data: salesData.data,
+//         fill: false,
+//         borderColor: 'rgb(75, 192, 192)',
+//         tension: 0.2,
+//         pointBackgroundColor: salesData.data.map((_, i) =>
+//           i === salesData.peakIndex ? 'rgb(255, 99, 132)' : 'rgb(75, 192, 192)'
+//         ),
+//         pointRadius: salesData.data.map((_, i) => (i === salesData.peakIndex ? 7 : 4)),
+//       },
+//     ],
+//   };
+
+//   // --- MOBILE IMPROVEMENT: Updated Chart Options ---
+//   const lineChartOptions = {
+//     responsive: true,
+//     maintainAspectRatio: false, // Allows chart to respect container height
+//     plugins: {
+//       legend: {
+//         position: 'top' as const,
+//         labels: {
+//           font: { size: 10 }, // Smaller font for legend
+//         }
+//       },
+//       title: {
+//         display: true,
+//         text: 'Monthly Sales Trend',
+//         font: { size: 14 } // Smaller font for title
+//       },
+//       tooltip: {
+//         callbacks: {
+//           label: function (context: any) {
+//             return `₹${context.raw.toFixed(2)}`;
+//           }
+//         }
+//       }
+//     },
+//     scales: {
+//       y: {
+//         beginAtZero: true,
+//         ticks: {
+//           font: { size: 10 }, // Smaller font for Y-axis numbers
+//         },
+//       },
+//       x: {
+//         ticks: {
+//           font: { size: 10 }, // Smaller font for X-axis labels
+//           maxRotation: 45, // Rotate labels by 45 degrees
+//           minRotation: 45,
+//         },
+//       }
+//     },
+//   };
+//   // --- END OF UPDATED CHART OPTIONS ---
+
+//   return (
+//     <div className="space-y-4 sm:space-y-6">
+//       {/* Sales Overview */}
+//       <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+//         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Sales Overview</h3>
+//         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+//           <div className="p-2 sm:p-4 rounded-lg bg-blue-100 border border-blue-300 hover:bg-blue-200 transition">
+//             <h4 className="text-xs sm:text-sm font-medium text-blue-600">Total Orders</h4>
+//             <p className="text-xl sm:text-2xl font-bold">{orderStats.totalOrders}</p>
+//           </div>
+//           <div className="p-2 sm:p-4 bg-green-100 border border-green-300 rounded-lg hover:bg-green-200 transition">
+//             <h4 className="text-xs sm:text-sm font-medium text-green-600">Total Revenue</h4>
+//             <p className="text-xl sm:text-2xl font-bold">₹{orderStats.totalRevenue.toFixed(2)}</p>
+//           </div>
+//           <div className="p-2 sm:p-4 bg-purple-100 border border-purple-300 rounded-lg hover:bg-purple-200 transition sm:col-span-2 lg:col-span-1">
+//             <h4 className="text-xs sm:text-sm font-medium text-purple-600">Average Order Value</h4>
+//             <p className="text-xl sm:text-2xl font-bold">₹{orderStats.averageOrderValue.toFixed(2)}</p>
+//           </div>
+//         </div>
+//       </div>
+
+
+
+//       {/* Sales Trend */}
+//       <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+//         <h3 className="text-lg font-semibold mb-4">Sales Trend</h3>
+//         {/* The container height is maintained for better mobile visibility */}
+//         <div className="w-full min-h-[300px] sm:min-h-[350px] lg:min-h-[400px]">
+//           <Line data={lineChartData} options={lineChartOptions} />
+//         </div>
+
+//         {/* --- NEW BUTTON FOR DETAILED ANALYSIS --- */}
+//         <div className="mt-4 pt-4 border-t border-gray-200 flex justify-center sm:justify-end">
+//           <button
+//             type="button"
+//             onClick={() => setIsModalOpen(true)}
+//             className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out text-sm"
+//           >
+//             View Detailed Analysis
+//           </button>
+//         </div>
+
+//         {/* Modal for Detailed Analysis */}
+//         {isModalOpen && (
+//           <div className="fixed inset-0 z-50 flex items-center justify-center">
+//             <div
+//               className="fixed inset-0 bg-black opacity-50"
+//               onClick={() => setIsModalOpen(false)}
+//             />
+
+//             <div
+//               role="dialog"
+//               aria-modal="true"
+//               className="bg-white rounded-lg shadow-lg z-60 max-w-2xl w-full mx-4 p-6 relative"
+//             >
+//               <h4 className="text-lg font-semibold mb-4">Detailed Sales Analysis</h4>
+
+//               {/* ---- FILTER DROPDOWN ---- */}
+//               <div className="mb-4">
+//                 <label className="text-sm font-medium">Select Range</label>
+//                 <select
+//                   value={selectedRange}
+//                   onChange={(e) => setSelectedRange(e.target.value)}
+//                   className="w-full mt-1 p-2 border border-gray-300 rounded-md"
+//                 >
+//                   <option value="monthly">Monthly</option>
+//                   <option value="quarterly">Quarterly</option>
+//                   <option value="half-yearly">Half Yearly</option>
+//                   <option value="yearly">Yearly</option>
+//                 </select>
+//               </div>
+
+//               {/* ---- SALES CHART ---- */}
+//               <div className="w-full min-h-[300px] sm:min-h-[350px] mb-6">
+//                 <Line data={detailedChart.data} options={detailedChart.options} />
+//               </div>
+
+//               {/* ---- PEAK MONTH / HOURS ---- */}
+//               <div className="p-4 bg-gray-50 rounded-lg border mb-4">
+//                 <h5 className="font-semibold text-gray-700 mb-2">Insights</h5>
+
+//                 <p className="text-sm text-gray-600">
+//                   📌 <b>Peak Period:</b> {peakPeriod}
+//                 </p>
+//                 <p className="text-sm text-gray-600">
+//                   🕒 <b>Peak Hour:</b> {peakHour}:00 – {peakHour + 1}:00
+//                 </p>
+//               </div>
+
+//               {/* CLOSE BUTTON */}
+//               <div className="flex justify-end mt-4">
+//                 <button
+//                   onClick={() => setIsModalOpen(false)}
+//                   className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+//                 >
+//                   Close
+//                 </button>
+//               </div>
+//             </div>
+//           </div>
+//         )}
+//       </div>
+
+
+
+//       {/* Quick Stats */}
+//       <div className="bg-white p-3 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+//         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Stats</h3>
+//         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+//           <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-200">
+//             <div className="text-xl sm:text-2xl font-bold text-indigo-600">{orders.filter(o => o.status === 'completed').length}</div>
+//             <div className="text-xs sm:text-sm text-indigo-600">Completed Orders</div>
+//           </div>
+//           <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+//             <div className="text-xl sm:text-2xl font-bold text-yellow-600">{orders.filter(o => o.status === 'pending').length}</div>
+//             <div className="text-xs sm:text-sm text-yellow-600">Pending Orders</div>
+//           </div>
+//           <div className="text-center p-2 bg-red-50 rounded-lg border border-red-200">
+//             <div className="text-xl sm:text-2xl font-bold text-red-600">{orders.filter(o => o.status === 'cancelled').length}</div>
+//             <div className="text-xs sm:text-sm text-red-600">Cancelled Orders</div>
+//           </div>
+//           <div className="text-center p-2 bg-green-50 rounded-lg border border-green-200">
+//             <div className="text-xl sm:text-2xl font-bold text-green-600">{orderStats.deliveredOrdersCount}</div>
+//             <div className="text-xs sm:text-sm text-green-600">Delivered Orders</div>
+//           </div>
+//         </div>
+//       </div>
+//       {/* Recent Orders */}
+//       <div className="bg-white p-4 sm:p-6 rounded-lg shadow hover:shadow-md transition duration-300">
+//         <h3 className="text-lg font-semibold mb-4">Recent Orders</h3>
+//         <div className="space-y-2">
+//           {orders.slice(0, 5).map((order) => (
+//             <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+//               <div className="flex-1">
+//                 <div className="font-medium text-sm">
+//                   Order #{order.order_number || order.id.slice(0, 8)}
+//                 </div>
+//                 <div className="text-xs text-gray-500">
+//                   {order.profiles?.name || (order as any).customer_name || 'Unknown Customer'}
+//                 </div>
+//                 <div className="text-xs text-gray-400">
+//                   {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
+//                 </div>
+//               </div>
+//               <div className="text-right">
+//                 <div className="font-semibold">₹{order.total?.toFixed(2) || '0.00'}</div>
+//                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${order.status === 'completed' ? 'bg-green-100 text-green-800' :
+//                   order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+//                     order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+//                       'bg-gray-100 text-gray-800'
+//                   }`}>
+//                   {order.status}
+//                 </span>
+//               </div>
+//             </div>
+//           ))}
+//         </div>
+//         {orders.length === 0 && (
+//           <div className="text-center py-8 text-gray-500">
+//             No orders found to display analytics.
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default SalesAnalytics;
