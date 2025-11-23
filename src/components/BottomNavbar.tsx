@@ -1,5 +1,5 @@
 
-import { Home, Box, Phone, ShoppingBag, User } from "lucide-react";
+import { Home, Box, BarChart, ShoppingBag, User } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -31,13 +31,13 @@ export default function BottomNavbar() {
                     <ShoppingBag className="h-5 w-5 mb-0.5" />
                     Orders
                 </Link>
-                <Link to="/user-profile" className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
-                    <User className="h-5 w-5 mb-0.5" />
-                    Profile
+                <Link to={isAdmin ? "/admin/sales" : "/"} className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
+                    <BarChart className="h-5 w-5 mb-0.5" />
+                    Sales
                 </Link>
-                <Link to="/contact" className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
-                    <Phone className="h-5 w-5 mb-0.5" />
-                    Contact
+                <Link to={isAdmin ? "/admin/users" : "/user-profile"} className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
+                    <User className="h-5 w-5 mb-0.5" />
+                    Users
                 </Link>
             </div>
         </nav>
