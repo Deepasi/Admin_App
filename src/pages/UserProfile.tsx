@@ -6,6 +6,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useState } from "react";
 import { User, Edit3, Save, X, LogOut, Mail, Phone, MapPin, Building } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 async function getCurrentUser() {
   const { data, error } = await supabase.auth.getUser();
@@ -49,6 +59,7 @@ const UserProfile: React.FC = () => {
     zip_code: "",
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   // When profile loads, set editData only if not editing
   React.useEffect(() => {
@@ -75,13 +86,47 @@ const UserProfile: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
-      toast({ title: "Profile updated", description: "Your info was saved." });
+      toast({ 
+        title: "Profile updated successfully", 
+        description: "Your profile information has been saved.",
+        variant: "default"
+      });
       setIsEditing(false);
+      setShowSaveDialog(false);
     },
     onError: () => {
-      toast({ title: "Error", description: "Could not update profile.", variant: "destructive" });
+      toast({ 
+        title: "Update failed", 
+        description: "Could not update your profile. Please try again.", 
+        variant: "destructive" 
+      });
+      setShowSaveDialog(false);
     },
   });
+
+  const handleSaveClick = () => {
+    setShowSaveDialog(true);
+  };
+
+  const handleConfirmSave = () => {
+    updateProfile.mutate(editData);
+  };
+
+  const handleCancelSave = () => {
+    setShowSaveDialog(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditData({
+      name: profile?.name || "",
+      phone: profile?.phone || "",
+      address: profile?.address || "",
+      city: profile?.city || "",
+      state: profile?.state || "",
+      zip_code: profile?.zip_code || "",
+    });
+  };
 
   const isUnchanged =
     editData.name === (profile?.name || "") &&
@@ -123,135 +168,65 @@ const UserProfile: React.FC = () => {
       </div>
 
       <div className="relative z-10 max-w-lg mx-auto px-3 py-4 sm:max-w-2xl sm:px-4 sm:py-6">
-        {/* Header Section */}
-      
-
         {/* Main Profile Card */}
-         <div className="mt-20">
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-400/15 to-purple-400/15 rounded-2xl blur-lg"></div>
-          <div className="relative bg-white/95 backdrop-blur-xl border-2 border-slate-200/80 rounded-2xl shadow-xl overflow-hidden">
-            {/* Card Header */}
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-4 py-4 border-b-2 border-slate-200/60">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
+        <div className="mt-20">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/15 to-purple-400/15 rounded-2xl blur-lg"></div>
+            <div className="relative bg-white/95 backdrop-blur-xl border-2 border-slate-200/80 rounded-2xl shadow-xl overflow-hidden">
+              {/* Card Header */}
+              <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-4 py-4 border-b-2 border-slate-200/60">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-semibold text-slate-800 truncate">Profile Information</h2>
+                      <p className="text-slate-500 text-xs sm:text-sm">Keep your details up to date</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold text-slate-800 truncate">Profile Information</h2>
-                    <p className="text-slate-500 text-xs sm:text-sm">Keep your details up to date</p>
-                  </div>
+                  {!isEditing && (
+                    <Button
+                      onClick={() => setIsEditing(true)}
+                      className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all duration-200 h-9 px-3 text-sm"
+                    >
+                      <Edit3 className="w-3 h-3 mr-1.5" />
+                      Edit
+                    </Button>
+                  )}
                 </div>
-                {!isEditing && (
-                  <Button
-                    onClick={() => setIsEditing(true)}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-md hover:shadow-lg transition-all duration-200 h-9 px-3 text-sm"
-                  >
-                    <Edit3 className="w-3 h-3 mr-1.5" />
-                    Edit
-                  </Button>
-                )}
               </div>
-            </div>
 
-            {/* Form Content */}
-            <div className="p-4 sm:p-6">
-              <div className="space-y-4">
-                {/* Email Field */}
-                <div className="relative group">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    <Mail className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Input 
-                      value={profile?.email || user.email} 
-                      disabled 
-                      className="bg-slate-50 border-2 border-slate-200 text-slate-600 rounded-lg h-10 pl-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-sm"
-                    />
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </div>
-                </div>
-
-                {/* Name Field */}
-                <div className="relative group">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    <User className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-                    Full Name
-                  </label>
-                  <div className="relative">
-                    <Input
-                      value={editData.name}
-                      onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
-                      placeholder="Enter your full name"
-                      disabled={!isEditing}
-                      className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
-                        isEditing 
-                          ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    />
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </div>
-                </div>
-
-                {/* Phone Field */}
-                <div className="relative group">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    <Phone className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <Input
-                      value={editData.phone}
-                      onChange={e => setEditData(d => ({ ...d, phone: e.target.value }))}
-                      placeholder="Enter your phone number"
-                      disabled={!isEditing}
-                      className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
-                        isEditing 
-                          ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    />
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </div>
-                </div>
-
-                {/* Address Field */}
-                <div className="relative group">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                    <MapPin className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-                    Street Address
-                  </label>
-                  <div className="relative">
-                    <Input
-                      value={editData.address}
-                      onChange={e => setEditData(d => ({ ...d, address: e.target.value }))}
-                      placeholder="Enter your street address"
-                      disabled={!isEditing}
-                      className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
-                        isEditing 
-                          ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    />
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </div>
-                </div>
-
-                {/* City, State Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Form Content */}
+              <div className="p-4 sm:p-6">
+                <div className="space-y-4">
+                  {/* Email Field */}
                   <div className="relative group">
                     <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
-                      <Building className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
-                      City
+                      <Mail className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Input 
+                        value={profile?.email || user.email} 
+                        disabled 
+                        className="bg-slate-50 border-2 border-slate-200 text-slate-600 rounded-lg h-10 pl-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-sm"
+                      />
+                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    </div>
+                  </div>
+
+                  {/* Name Field */}
+                  <div className="relative group">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                      <User className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                      Full Name
                     </label>
                     <div className="relative">
                       <Input
-                        value={editData.city}
-                        onChange={e => setEditData(d => ({ ...d, city: e.target.value }))}
-                        placeholder="Enter city"
+                        value={editData.name}
+                        onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
+                        placeholder="Enter your full name"
                         disabled={!isEditing}
                         className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
                           isEditing 
@@ -262,13 +237,18 @@ const UserProfile: React.FC = () => {
                       <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                     </div>
                   </div>
+
+                  {/* Phone Field */}
                   <div className="relative group">
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">State</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                      <Phone className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                      Phone Number
+                    </label>
                     <div className="relative">
                       <Input
-                        value={editData.state}
-                        onChange={e => setEditData(d => ({ ...d, state: e.target.value }))}
-                        placeholder="Enter state"
+                        value={editData.phone}
+                        onChange={e => setEditData(d => ({ ...d, phone: e.target.value }))}
+                        placeholder="Enter your phone number"
                         disabled={!isEditing}
                         className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
                           isEditing 
@@ -279,81 +259,153 @@ const UserProfile: React.FC = () => {
                       <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                     </div>
                   </div>
-                </div>
 
-                {/* Zip Code */}
-                <div className="relative group">
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Postal Code</label>
-                  <div className="relative">
-                    <Input
-                      value={editData.zip_code}
-                      onChange={e => setEditData(d => ({ ...d, zip_code: e.target.value }))}
-                      placeholder="Enter postal code"
-                      disabled={!isEditing}
-                      className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
-                        isEditing 
-                          ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    />
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                  {/* Address Field */}
+                  <div className="relative group">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                      <MapPin className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                      Street Address
+                    </label>
+                    <div className="relative">
+                      <Input
+                        value={editData.address}
+                        onChange={e => setEditData(d => ({ ...d, address: e.target.value }))}
+                        placeholder="Enter your street address"
+                        disabled={!isEditing}
+                        className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
+                          isEditing 
+                            ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
+                            : 'bg-slate-50 border-slate-200 text-slate-600'
+                        }`}
+                      />
+                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    </div>
                   </div>
-                </div>
 
-                {/* Action Buttons */}
-                <div className="pt-4 border-t-2 border-slate-200/60">
-                  {!isEditing ? (
-                    <div className="flex flex-col gap-3">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={signOut}
-                        className="w-full h-10 rounded-lg border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all duration-200 text-sm"
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Sign Out
-                      </Button>
+                  {/* City, State Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="relative group">
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center">
+                        <Building className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                        City
+                      </label>
+                      <div className="relative">
+                        <Input
+                          value={editData.city}
+                          onChange={e => setEditData(d => ({ ...d, city: e.target.value }))}
+                          placeholder="Enter city"
+                          disabled={!isEditing}
+                          className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
+                            isEditing 
+                              ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
+                              : 'bg-slate-50 border-slate-200 text-slate-600'
+                          }`}
+                        />
+                        <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <Button 
-                        type="button" 
-                        disabled={updateProfile.isPending || isUnchanged}
-                        onClick={() => updateProfile.mutate(editData)}
-                        className="w-full h-10 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 text-sm"
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        {updateProfile.isPending ? "Saving..." : "Save Changes"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setIsEditing(false);
-                          setEditData({
-                            name: profile.name || "",
-                            phone: profile.phone || "",
-                            address: profile.address || "",
-                            city: profile.city || "",
-                            state: profile.state || "",
-                            zip_code: profile.zip_code || "",
-                          });
-                        }}
-                        className="w-full h-10 rounded-lg border-2 border-slate-300 hover:bg-slate-50 transition-all duration-200 text-sm"
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Cancel
-                      </Button>
+                    <div className="relative group">
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">State</label>
+                      <div className="relative">
+                        <Input
+                          value={editData.state}
+                          onChange={e => setEditData(d => ({ ...d, state: e.target.value }))}
+                          placeholder="Enter state"
+                          disabled={!isEditing}
+                          className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
+                            isEditing 
+                              ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
+                              : 'bg-slate-50 border-slate-200 text-slate-600'
+                          }`}
+                        />
+                        <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Zip Code */}
+                  <div className="relative group">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Postal Code</label>
+                    <div className="relative">
+                      <Input
+                        value={editData.zip_code}
+                        onChange={e => setEditData(d => ({ ...d, zip_code: e.target.value }))}
+                        placeholder="Enter postal code"
+                        disabled={!isEditing}
+                        className={`rounded-lg h-10 pl-3 transition-all duration-200 text-sm border-2 ${
+                          isEditing 
+                            ? 'border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white shadow-sm' 
+                            : 'bg-slate-50 border-slate-200 text-slate-600'
+                        }`}
+                      />
+                      <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-transparent via-blue-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pt-4 border-t-2 border-slate-200/60">
+                    {!isEditing ? (
+                      <div className="flex flex-col gap-3">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={signOut}
+                          className="w-full h-10 rounded-lg border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all duration-200 text-sm"
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Sign Out
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        <Button 
+                          type="button" 
+                          disabled={updateProfile.isPending || isUnchanged}
+                          onClick={handleSaveClick}
+                          className="w-full h-10 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 text-sm"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          {updateProfile.isPending ? "Saving..." : "Save Changes"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                          className="w-full h-10 rounded-lg border-2 border-slate-300 hover:bg-slate-50 transition-all duration-200 text-sm"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Save Confirmation Dialog */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save Changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save these changes to your profile? This will update your personal information.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSave}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>
+              {updateProfile.isPending ? "Saving..." : "Save Changes"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
-        </div>
   );
 };
 
