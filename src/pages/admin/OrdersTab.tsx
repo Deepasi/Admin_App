@@ -257,8 +257,8 @@ const OrdersTab: React.FC = () => {
                   initial={{ opacity: 1, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`border-l-4 rounded-lg p-3 sm:p-4 transition-all duration-300 shadow-md cursor-pointer ${expandedOrderId === order.id
-                      ? ' text-black bg-blue-50 border-blue-200 '
-                      : 'bg-white border-gray-200 hover:bg-gray-200 hover:border-pink-200'
+                    ? ' text-black bg-blue-50 border-blue-200 '
+                    : 'bg-white border-gray-200 hover:bg-gray-200 hover:border-pink-200'
                     }`}
                   onClick={() => toggleOrderExpansion(order.id)}>
 
@@ -282,9 +282,9 @@ const OrdersTab: React.FC = () => {
                         <div className="flex flex-col items-end ml-2">
                           <p className="font-medium text-sm">₹{order.total?.toFixed(2) || '0.00'}</p>
                           <span className={`px-2 py-1 rounded-full text-xs ${order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
+                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
                             }`}>
                             {order.status}
                           </span>
