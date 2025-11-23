@@ -25,6 +25,25 @@ interface OrderItem {
     created_at?: string;
     latitude?: number;
     longitude?: number;
+    // fields matching provided SQL schema
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    // order items
+    order_items?: Array<{
+        id: string;
+        quantity: number;
+        price: number;
+        products?: {
+            title?: string;
+            price?: string | number;
+            image?: string;
+        };
+    }>;
 }
 
 const DeliveryAssign: React.FC = () => {
@@ -69,7 +88,8 @@ const DeliveryAssign: React.FC = () => {
                 const res = await (supabase as any)
                     .from('orders')
                     .select('*')
-                    .neq('status', 'completed')
+                    // only fetch orders that are explicitly 'pending'
+                    .eq('status', 'pending')
                     .order('created_at', { ascending: false });
                 if (res.error) throw res.error;
                 setOrders((res.data as any[]) || []);
@@ -370,37 +390,13 @@ const DeliveryAssign: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [drivers, orders, geocodedDrivers, geocodedOrders]);
 
-    const clearAssignments = () => {
-        console.debug('clearAssignments clicked');
-        setAssignments({});
-    };
-
-    const copyAssignmentsCSV = async () => {
-        console.debug('copyAssignmentsCSV clicked', { assignmentsCount: Object.keys(assignments).length });
-        if (!orders || orders.length === 0) return;
-        const lines = ['order_id,order_number,driver_id,driver_name,driver_city'];
-        orders.forEach((o) => {
-            const did = assignments[String(o.id)];
-            const d =
-                // prefer geocodedDrivers for display (they are the same ids but may include coords)
-                (geocodedDrivers.length ? geocodedDrivers : drivers).find((x) => String(x.id) === String(did));
-            lines.push(`${o.id || ''},${o.order_number || ''},${did || ''},${d?.full_name || d?.name || ''},${d?.city || ''}`);
-        });
-        const csv = lines.join('\n');
-        try {
-            await navigator.clipboard.writeText(csv);
-            alert('Assignments copied to clipboard');
-        } catch (err) {
-            console.error('Failed to copy CSV', err);
-            alert('Failed to copy; see console for CSV');
-        }
-    };
+    // Copy/Clear assignment UI and helpers removed per request
 
     // choose driver list used for display (geocoded if available)
     const srcDriversForDisplay = geocodedDrivers.length ? geocodedDrivers : drivers;
 
     return (
-        <main className="pt-20 min-h-screen bg-gray-50">
+        <main className="pt-20 min-h-screen bg-sky-50">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
                 <div className="bg-white rounded-xl shadow-md p-6">
                     <h1 className="text-3xl font-bold mb-2 text-slate-800">Delivery Assign</h1>
@@ -442,20 +438,7 @@ const DeliveryAssign: React.FC = () => {
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        className="bg-gray-200 text-gray-800 px-3 py-2 rounded hover:bg-gray-300 transition"
-                                        onClick={() => copyAssignmentsCSV()}
-                                    >
-                                        Copy Assignments CSV
-                                    </button>
-                                    <button
-                                        className="bg-red-100 text-red-800 px-3 py-2 rounded hover:bg-red-200 transition"
-                                        onClick={() => clearAssignments()}
-                                    >
-                                        Clear Assignments
-                                    </button>
-                                </div>
+                                {/* controls removed: copy assignments and clear assignments buttons were removed */}
                             </div>
 
                             {/* If we have assignments, render per-driver boxes showing assigned orders */}
@@ -478,19 +461,33 @@ const DeliveryAssign: React.FC = () => {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                 {orders.filter((o) => !assignments[String(o.id)]).map((o) => {
                                                     const shortId = (id: string) => (id && id.length > 8 ? id.slice(0, 8) : id);
-                                                    const customer = (o as any).customer_name || (o as any).profiles?.name || (o as any).customer_phone || '';
+                                                    // prefer `name/phone/email/address` columns; fall back to delivery_* names
+                                                    const customer = (o as any).name || (o as any).customer_name || (o as any).profiles?.name || '';
+                                                    const customerPhone = (o as any).phone || (o as any).customer_phone || '';
+                                                    const customerEmail = (o as any).email || (o as any).customer_email || '';
                                                     const title = o.order_number ? `Order #${o.order_number}` : `Order ${shortId(o.id)}`;
                                                     const addrParts = [] as string[];
-                                                    if (o.delivery_address) addrParts.push(o.delivery_address);
-                                                    if (o.delivery_city) addrParts.push(o.delivery_city);
+                                                    if ((o as any).address) addrParts.push((o as any).address);
+                                                    if ((o as any).delivery_address) addrParts.push((o as any).delivery_address);
+                                                    if ((o as any).city) addrParts.push((o as any).city);
+                                                    if ((o as any).delivery_city) addrParts.push((o as any).delivery_city);
+                                                    if ((o as any).state) addrParts.push((o as any).state);
+                                                    if ((o as any).delivery_state) addrParts.push((o as any).delivery_state);
+                                                    if ((o as any).zip_code) addrParts.push((o as any).zip_code);
                                                     const addrDisplay = addrParts.join(' • ');
                                                     return (
                                                         <div key={o.id} className="p-3 border rounded bg-white">
                                                             <div className="text-sm font-medium">{title}</div>
                                                             {customer ? (
-                                                                <div className="text-xs text-gray-500">{customer}</div>
+                                                                <div className="text-xs text-gray-500">{customer}{customerPhone ? ` • ${customerPhone}` : ''}{customerEmail ? ` • ${customerEmail}` : ''}</div>
                                                             ) : (
                                                                 addrDisplay && <div className="text-xs text-gray-500">{addrDisplay}</div>
+                                                            )}
+                                                            {/* optionally show small items summary */}
+                                                            {o.order_items && o.order_items.length > 0 && (
+                                                                <div className="mt-2 text-xs text-gray-600">
+                                                                    {o.order_items.map(it => `${it.quantity}× ${it.products?.title || 'Item'}`).join(', ')}
+                                                                </div>
                                                             )}
                                                         </div>
                                                     );
