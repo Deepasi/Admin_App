@@ -28,6 +28,7 @@ import AnalyticsTab from "./pages/admin/AnalyticsTab";
 import AlertsPage from "./pages/admin/Alerts"; // Make sure this import is correct
 import UsersTab from "./pages/admin/UsersTab";
 import SalesAnalytics from "./pages/admin/SalesAnalytics";
+import DeliveryAssign from "./pages/admin/DeliveryAssign";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ const AppContent = () => {
                 <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><AnalyticsTab /></ProtectedRoute>} />
                 <Route path="/admin/sales" element={<ProtectedRoute adminOnly><AnalyticsTab /></ProtectedRoute>} />
                 <Route path="/admin/users" element={<ProtectedRoute adminOnly><UsersTab /></ProtectedRoute>} />
+                <Route path="/admin/delivery" element={<ProtectedRoute adminOnly><DeliveryAssign /></ProtectedRoute>} />
 
                 {/* Add the alerts route - make sure the path matches exactly */}
                 <Route path="/admin/alerts" element={<ProtectedRoute adminOnly><AlertsPage /></ProtectedRoute>} />
