@@ -17,6 +17,13 @@ interface Order {
   customer_name?: string;
   customer_phone?: string;
   customer_email?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
   delivery_address?: string;
   delivery_city?: string;
   delivery_state?: string;
@@ -29,8 +36,14 @@ interface Order {
   cancellation_reason?: string;
   cancelled_by?: string;
   profiles?: {
+    id?: string;
     name?: string;
     email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
   };
   order_items?: Array<{
     id: string;
@@ -54,27 +67,44 @@ const OrdersTab: React.FC = () => {
   const { data: orders = [], isLoading: ordersLoading, error: ordersError } = useQuery<Order[]>({
     queryKey: ['admin-orders'],
     queryFn: async () => {
-      const { data: ordersData, error: ordersError } = await supabase
+          const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }) as { data: Order[] | null; error: any };
 
       if (ordersError) throw ordersError;
 
-      const userIds = [...new Set(ordersData.map(order => order.user_id))];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, name, email')
-        .in('id', userIds);
+      const userIds = [...new Set((ordersData || []).map(order => order.user_id).filter(Boolean))];
+      console.log('User IDs:', userIds);
 
-      const ordersWithProfiles = ordersData.map(order => ({
-        ...order,
-        profiles: profilesData?.find(profile => profile.id === order.user_id)
-      }));
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, email, phone, address, city, state, zip_code')
+        .in('id', userIds) as { data: Array<Order['profiles']> | null; error: any };
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+      }
+      console.log('Profiles data:', profilesData);
+
+      const ordersWithProfiles = (ordersData || []).map(order => {
+        const profile = profilesData?.find(profile => profile.id === order.user_id);
+        return {
+          ...order,
+          profiles: profile,
+          customer_name: order.customer_name || order.name || profile?.name,
+          customer_email: order.customer_email || order.email || profile?.email,
+          customer_phone: order.customer_phone || order.phone || profile?.phone,
+          delivery_address: order.delivery_address || order.address || profile?.address,
+          delivery_city: order.delivery_city || order.city || profile?.city,
+          delivery_state: order.delivery_state || order.state || profile?.state,
+          delivery_zip_code: order.delivery_zip_code || order.zip_code || profile?.zip_code,
+        };
+      });
 
       const ordersWithItems = await Promise.all(
-        (ordersWithProfiles || []).map(async (order) => {
-          const { data: itemsData, error: itemsError } = await supabase
+        ordersWithProfiles.map(async (order) => {
+          const { data: itemsData, error: itemsError } = await (supabase
             .from('order_items')
             .select(`
               *,
@@ -82,7 +112,7 @@ const OrdersTab: React.FC = () => {
                 title, price, image
               )
             `)
-            .eq('order_id', order.id);
+            .eq('order_id', order.id) as any);
 
           return {
             ...order,
@@ -91,6 +121,7 @@ const OrdersTab: React.FC = () => {
         })
       );
 
+      console.log('Final orders data:', ordersWithItems);
       return ordersWithItems as Order[];
     },
     retry: 3,
@@ -138,9 +169,12 @@ const OrdersTab: React.FC = () => {
         (order.order_number && order.order_number.toLowerCase().includes(term)) ||
         (order.profiles?.name && order.profiles.name.toLowerCase().includes(term)) ||
         (order.customer_name && order.customer_name.toLowerCase().includes(term)) ||
+        (order.name && order.name.toLowerCase().includes(term)) ||
         (order.profiles?.email && order.profiles.email.toLowerCase().includes(term)) ||
         (order.customer_email && order.customer_email.toLowerCase().includes(term)) ||
-        (order.customer_phone && order.customer_phone.toLowerCase().includes(term))
+        (order.email && order.email.toLowerCase().includes(term)) ||
+        (order.customer_phone && order.customer_phone.toLowerCase().includes(term)) ||
+        (order.phone && order.phone.toLowerCase().includes(term))
       );
     }
 
@@ -157,6 +191,25 @@ const OrdersTab: React.FC = () => {
 
     return filtered;
   }, [orders, statusFilter, searchTerm, sortBy]);
+
+  const groupedOrdersByDate = useMemo(() => {
+    const groups = new Map<string, { dateKey: string; label: string; orders: Order[] }>();
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+
+    filteredOrders.forEach(order => {
+      const date = new Date(order.created_at);
+      const dateKey = format(date, 'yyyy-MM-dd');
+      const label = dateKey === todayKey ? 'Today' : format(date, 'MMMM dd, yyyy');
+
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, { dateKey, label, orders: [] });
+      }
+
+      groups.get(dateKey)?.orders.push(order);
+    });
+
+    return Array.from(groups.values());
+  }, [filteredOrders]);
 
   // Toggle order expansion function
   const toggleOrderExpansion = (orderId: string) => {
@@ -216,8 +269,8 @@ const OrdersTab: React.FC = () => {
 
           {/* Order Statistics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
-            <div className="p-2 sm:p-4 bg-blue-100 border border-blue-600 rounded-lg hover:bg-blue-200 transition">
-              <h4 className="text-xs sm:text-sm font-medium text-blue-600">Total Orders</h4>
+            <div className="p-2 sm:p-4 bg-yellow-100 border border-yellow-400 rounded-lg hover:bg-yellow-200 transition">
+              <h4 className="text-xs sm:text-sm font-medium text-yellow-700">Total Orders</h4>
               <p className="text-lg sm:text-2xl font-bold">{orderStats.totalOrders}</p>
             </div>
             <div className="p-2 sm:p-4 bg-green-100 border border-green-600 rounded-lg hover:bg-green-200 transition">
@@ -250,175 +303,103 @@ const OrdersTab: React.FC = () => {
           ) : filteredOrders.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No orders found</div>
           ) : (
-            <div className="space-y-3 sm:space-y-4 bg-gray-300 border border-black rounded-lg shadow p-3 sm:p-6">
-              {filteredOrders.map((order) => (
-                <motion.div
-                  key={order.id}
-                  initial={{ opacity: 1, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`border-l-4 rounded-lg p-3 sm:p-4 transition-all duration-300 shadow-md cursor-pointer ${expandedOrderId === order.id
-                    ? ' text-black bg-blue-50 border-blue-200 '
-                    : 'bg-white border-gray-200 hover:bg-gray-200 hover:border-pink-200'
-                    }`}
-                  onClick={() => toggleOrderExpansion(order.id)}>
-
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                    {/* Mobile: Stack vertically, Desktop: Side by side */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm sm:text-base truncate">
-                            Order #{order.order_number || order.id.slice(0, 8)}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-black truncate">
-                            {order.profiles?.name || order.customer_name || 'Unknown Customer'}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
-                          </p>
-                        </div>
-
-                        {/* Price and Status */}
-                        <div className="flex flex-col items-end ml-2">
-                          <p className="font-medium text-sm">₹{order.total?.toFixed(2) || '0.00'}</p>
-                          <span className={`px-2 py-1 rounded-full text-xs ${order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                            }`}>
-                            {order.status}
-                          </span>
-                        </div>
-                      </div>
+            <div className="space-y-6">
+              {groupedOrdersByDate.map(group => (
+                <div key={group.dateKey} className="rounded-2xl border border-sky-400 bg-sky-100 p-4 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">{group.label}</h3>
+                      <p className="text-sm text-slate-600">{group.orders.length} order{group.orders.length !== 1 ? 's' : ''}</p>
                     </div>
-
-                    {/* Expand Indicator - Desktop only */}
-                    <div className="hidden sm:flex items-center">
-                      {expandedOrderId === order.id ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
-                      )}
-                    </div>
+                    <div className="text-sm text-slate-500">{group.label === 'Today' ? 'Showing today’s orders' : ''}</div>
                   </div>
 
-                  {/* Mobile Expand Indicator */}
-                  <div className="flex justify-center sm:hidden mt-2 pt-2 border-t border-gray-100">
-                    <div className="flex items-center gap-1 text-blue-600">
-                      {expandedOrderId === order.id ? (
-                        <>
-                          <span className="text-xs">Hide Details</span>
-                          <ChevronUp className="w-3 h-3" />
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-xs">Tap to view details</span>
-                          <ChevronDown className="w-3 h-3" />
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {expandedOrderId === order.id && (
-                    <motion.div
-                      animate={{ height: 'auto', opacity: 1 }}
-                      className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t"
-                    >
-                      <div className="grid grid-cols-1 gap-4 mb-4">
-                        {/* Mobile: Stack all info vertically */}
-                        <div className="space-y-3 sm:hidden">
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <h4 className="font-medium mb-2 text-sm">Customer Info</h4>
-                            <div className="space-y-1">
-                              <p className="text-xs"><strong>Name:</strong> {order.profiles?.name || order.customer_name || 'N/A'}</p>
-                              <p className="text-xs"><strong>Email:</strong> {order.profiles?.email || order.customer_email || 'N/A'}</p>
-                              <p className="text-xs"><strong>Phone:</strong> {order.customer_phone || 'N/A'}</p>
-                            </div>
+                  <div className="space-y-4">
+                    {group.orders.map((order) => (
+                      <motion.div
+                        key={order.id}
+                        initial={{ opacity: 0.95, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`rounded-2xl border p-4 sm:p-5 shadow-sm ${expandedOrderId === order.id ? 'bg-white border-blue-200' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                          <div className="min-w-0">
+                            <h4 className="font-semibold text-sm sm:text-base truncate">Order #{order.order_number || order.id.slice(0, 8)}</h4>
+                            <p className="text-xs sm:text-sm text-slate-700 truncate">{order.profiles?.name || order.customer_name || order.name || 'Unknown Customer'}</p>
+                            <p className="text-xs text-slate-500">{format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}</p>
                           </div>
-
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <h4 className="font-medium mb-2 text-sm">Delivery Info</h4>
-                            <div className="space-y-1">
-                              <p className="text-xs"><strong>Address:</strong> {order.delivery_address || 'N/A'}</p>
-                              <p className="text-xs"><strong>City:</strong> {order.delivery_city || 'N/A'}</p>
-                              <p className="text-xs"><strong>State:</strong> {order.delivery_state || 'N/A'}</p>
-                              <p className="text-xs"><strong>ZIP:</strong> {order.delivery_zip_code || 'N/A'}</p>
+                          <div className="flex items-center justify-between gap-3 sm:justify-end">
+                            <div className="text-right">
+                              <p className="font-semibold text-sm">₹{order.total?.toFixed(2) || '0.00'}</p>
+                              <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${order.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : order.status === 'pending' ? 'bg-amber-100 text-amber-800' : order.status === 'cancelled' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-800'}`}>
+                                {order.status}
+                              </span>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleOrderExpansion(order.id)}
+                              className="inline-flex items-center gap-1 text-blue-600 text-xs sm:text-sm font-medium"
+                            >
+                              {expandedOrderId === order.id ? 'Hide details' : 'View details'}
+                              {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
                           </div>
                         </div>
 
-                        {/* Desktop: Two column layout */}
-                        <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <h4 className="font-medium mb-2">Customer Information</h4>
-                            <p className="text-sm"><strong>Name:</strong> {order.profiles?.name || order.customer_name || 'N/A'}</p>
-                            <p className="text-sm"><strong>Email:</strong> {order.profiles?.email || order.customer_email || 'N/A'}</p>
-                            <p className="text-sm"><strong>Phone:</strong> {order.customer_phone || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <h4 className="font-medium mb-2">Delivery Information</h4>
-                            <p className="text-sm"><strong>Address:</strong> {order.delivery_address || 'N/A'}</p>
-                            <p className="text-sm"><strong>City:</strong> {order.delivery_city || 'N/A'}</p>
-                            <p className="text-sm"><strong>State:</strong> {order.delivery_state || 'N/A'}</p>
-                            <p className="text-sm"><strong>ZIP:</strong> {order.delivery_zip_code || 'N/A'}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="font-medium mb-2 text-sm sm:text-base">Order Items</h4>
-                        {order.order_items && order.order_items.length > 0 ? (
-                          <div className="space-y-2">
-                            {order.order_items.map((item) => (
-                              <div key={item.id} className="flex justify-between items-center p-2 sm:p-3 bg-gray-50 rounded">
-                                <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                                  {item.products?.image && (
-                                    <img
-                                      src={item.products.image}
-                                      alt={item.products.title}
-                                      className="w-8 h-8 sm:w-10 sm:h-10 object-cover rounded flex-shrink-0"
-                                    />
-                                  )}
-                                  <div className="min-w-0 flex-1">
-                                    <p className="font-medium text-xs sm:text-sm truncate">{item.products?.title || 'Unknown Product'}</p>
-                                    <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
-                                  </div>
-                                </div>
-                                <div className="text-right flex-shrink-0 ml-2">
-                                  <p className="font-medium text-xs sm:text-sm">₹{item.price?.toFixed(2) || '0.00'}</p>
-                                  <p className="text-xs text-gray-500">
-                                    Total: ₹{((item.price || 0) * item.quantity).toFixed(2)}
-                                  </p>
-                                </div>
+                        {expandedOrderId === order.id && (
+                          <motion.div animate={{ opacity: 1 }} initial={{ opacity: 0 }} className="mt-4 border-t border-slate-200 pt-4">
+                            <div className="grid gap-4 md:grid-cols-2 mb-4">
+                              <div className="rounded-xl bg-slate-100 p-3">
+                                <h5 className="font-semibold text-sm mb-2">Customer Info</h5>
+                                <p className="text-xs text-slate-700"><strong>Name:</strong> {order.profiles?.name || order.customer_name || order.name || 'N/A'}</p>
+                                <p className="text-xs text-slate-700"><strong>Email:</strong> {order.profiles?.email || order.customer_email || order.email || 'N/A'}</p>
+                                <p className="text-xs text-slate-700"><strong>Phone:</strong> {order.customer_phone || order.phone || 'N/A'}</p>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-xs sm:text-sm">No items found for this order</p>
+                              <div className="rounded-xl bg-slate-100 p-3">
+                                <h5 className="font-semibold text-sm mb-2">Delivery Info</h5>
+                                <p className="text-xs text-slate-700"><strong>Address:</strong> {order.delivery_address || order.address || 'N/A'}</p>
+                                <p className="text-xs text-slate-700"><strong>City:</strong> {order.delivery_city || order.city || 'N/A'}</p>
+                                <p className="text-xs text-slate-700"><strong>State:</strong> {order.delivery_state || order.state || 'N/A'}</p>
+                                <p className="text-xs text-slate-700"><strong>ZIP:</strong> {order.delivery_zip_code || order.zip_code || 'N/A'}</p>
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-slate-100 p-3 mb-4">
+                              <h5 className="font-semibold text-sm mb-2">Order Items</h5>
+                              {order.order_items && order.order_items.length > 0 ? (
+                                <div className="space-y-2">
+                                  {order.order_items.map(item => (
+                                    <div key={item.id} className="flex items-center justify-between gap-3 bg-white rounded-xl p-3">
+                                      <div className="flex items-center gap-3">
+                                        {item.products?.image && <img src={item.products.image} alt={item.products.title} className="w-10 h-10 rounded object-cover" />}
+                                        <div>
+                                          <p className="text-sm font-medium truncate">{item.products?.title || 'Unknown Product'}</p>
+                                          <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-sm font-semibold">₹{item.price?.toFixed(2) || '0.00'}</p>
+                                        <p className="text-xs text-slate-500">Total: ₹{((item.price || 0) * item.quantity).toFixed(2)}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-500">No items found for this order</p>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center text-xs text-slate-600">
+                              <p><strong>Payment Method:</strong> {order.payment_method || 'N/A'}</p>
+                              {order.cancelled_at && (
+                                <p><strong>Cancelled:</strong> {format(new Date(order.cancelled_at), 'MMM dd, yyyy HH:mm')} {order.cancellation_reason ? `• Reason: ${order.cancellation_reason}` : ''}</p>
+                              )}
+                            </div>
+                          </motion.div>
                         )}
-                      </div>
-
-                      <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                          <div className="space-y-1">
-                            <p className="text-xs sm:text-sm"><strong>Payment Method:</strong> {order.payment_method || 'N/A'}</p>
-                            {order.cancelled_at && (
-                              <p className="text-xs sm:text-sm text-red-600">
-                                <strong>Cancelled:</strong> {format(new Date(order.cancelled_at), 'MMM dd, yyyy HH:mm')}
-                                {order.cancellation_reason && (
-                                  <span className="block">Reason: {order.cancellation_reason}</span>
-                                )}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <p className="text-base sm:text-lg font-bold">Total: ₹{order.total?.toFixed(2) || '0.00'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </motion.div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
