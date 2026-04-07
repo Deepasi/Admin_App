@@ -34,14 +34,23 @@ const UsersTab: React.FC = () => {
     },
   });
 
+  const getDisplayName = (profile: Profile) => {
+    if (profile.name && profile.name.trim()) return profile.name;
+    const emailName = profile.email?.split('@')[0] || 'User';
+    return emailName.charAt(0).toUpperCase() + emailName.slice(1);
+  };
+
   const filteredProfiles = useMemo(() => {
     if (!profiles || profiles.length === 0) return [];
 
-    return profiles.filter(profile =>
-      profile.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      profile.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      profile.id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return profiles.filter(profile => {
+      const displayName = getDisplayName(profile).toLowerCase();
+      return (
+        displayName.includes(searchTerm.toLowerCase()) ||
+        profile.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        profile.id.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
   }, [profiles, searchTerm]);
 
   return (
@@ -75,7 +84,7 @@ const UsersTab: React.FC = () => {
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium text-sm text-gray-900 truncate">
-                          {profile.name || 'No name'}
+                          {getDisplayName(profile)}
                         </h3>
                         <p className="text-xs text-gray-500 truncate">{profile.email}</p>
                       </div>
@@ -125,7 +134,7 @@ const UsersTab: React.FC = () => {
                       <TableRow key={profile.id} className="hover:bg-gray-50 border-b border-gray-600">
                         <TableCell className="p-2 sm:p-3">
                           <div className="space-y-1">
-                            <div className="font-medium text-sm">{profile.name || 'No name'}</div>
+                            <div className="font-medium text-sm">{getDisplayName(profile)}</div>
                             <div className="text-xs text-gray-500">{profile.email}</div>
                           </div>
                         </TableCell>
