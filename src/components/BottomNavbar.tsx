@@ -1,5 +1,4 @@
-
-import { Home, Box, BarChart, ShoppingBag, User } from "lucide-react";
+import { Home, Box, BarChart, ShoppingBag, User, Truck } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -22,6 +21,7 @@ export default function BottomNavbar() {
                     <Home className="h-5 w-5 mb-0.5" />
                     Home
                 </Link>
+                
                 <Link to={isAdmin ? "/admin/products" : "/products"} className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
                     <Box className="h-5 w-5 mb-0.5" />
                     Stock
@@ -31,10 +31,20 @@ export default function BottomNavbar() {
                     <ShoppingBag className="h-5 w-5 mb-0.5" />
                     Orders
                 </Link>
+
+                {/* FIXED: Changed from /admin/assign-delivery to /admin/delivery */}
+                {isAdmin && (
+                    <Link to="/admin/delivery" className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
+                        <Truck className="h-5 w-5 mb-0.5" />
+                        Assign
+                    </Link>
+                )}
+                
                 <Link to={isAdmin ? "/admin/sales" : "/"} className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
                     <BarChart className="h-5 w-5 mb-0.5" />
                     Sales
                 </Link>
+                
                 <Link to={isAdmin ? "/admin/users" : "/user-profile"} className="flex flex-col items-center text-xs text-gray-600 hover:text-brand-red">
                     <User className="h-5 w-5 mb-0.5" />
                     Users
