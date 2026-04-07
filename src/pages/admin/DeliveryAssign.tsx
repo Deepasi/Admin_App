@@ -223,22 +223,22 @@ const DeliveryAssign: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-100 pb-20 md:pb-0 pt-20 md:pt-24">
             {/* Mobile Header */}
-            <div className="md:hidden sticky top-20 z-30 bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
+            <div className="md:hidden sticky top-20 z-30 bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-xl border-b border-slate-700">
                 <div className="px-4 py-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                         <div>
                             <h1 className="text-xl font-bold flex items-center gap-2">
                                 <Package className="w-6 h-6" />
                                 Assign Deliveries
                             </h1>
-                            <p className="text-xs text-blue-100 mt-1">
-                                {drivers.length} drivers • {orders.length} orders
+                            <p className="text-xs text-slate-300 mt-1">
+                                {drivers.length} drivers • {orders.length} orders pending
                             </p>
                         </div>
                         <button
                             onClick={handleRefresh}
                             disabled={refreshing}
-                            className="bg-white/20 p-2 rounded-lg hover:bg-white/30 transition-colors"
+                            className="bg-white/15 p-2 rounded-xl hover:bg-white/25 transition-colors"
                         >
                             <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
                         </button>
@@ -246,35 +246,35 @@ const DeliveryAssign: React.FC = () => {
                 </div>
 
                 {/* Mobile Tab Navigation */}
-                <div className="flex border-t border-blue-500/30">
+                <div className="flex border-t border-slate-700">
                     <button
                         onClick={() => setActiveTab('orders')}
-                        className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`flex-1 py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                             activeTab === 'orders'
-                                ? 'bg-white/20 text-white'
-                                : 'text-blue-100 hover:bg-white/10'
+                                ? 'bg-orange-500 text-white shadow-inner'
+                                : 'bg-slate-900 text-orange-200 hover:bg-slate-800 hover:text-orange-100'
                         }`}
                     >
                         <ShoppingBag className="w-4 h-4" />
                         Orders ({orders.length})
                         {selectedOrders.length > 0 && activeTab === 'orders' && (
-                            <span className="bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                            <span className="bg-white/15 text-white text-[11px] px-2 py-0.5 rounded-full">
                                 {selectedOrders.length}
                             </span>
                         )}
                     </button>
                     <button
                         onClick={() => setActiveTab('drivers')}
-                        className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`flex-1 py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                             activeTab === 'drivers'
-                                ? 'bg-white/20 text-white'
-                                : 'text-blue-100 hover:bg-white/10'
+                                ? 'bg-emerald-500 text-white shadow-inner'
+                                : 'bg-slate-900 text-emerald-200 hover:bg-slate-800 hover:text-emerald-100'
                         }`}
                     >
                         <Users className="w-4 h-4" />
                         Drivers ({drivers.length})
                         {selectedDriver && activeTab === 'drivers' && (
-                            <span className="bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                            <span className="bg-white/15 text-white text-[11px] px-2 py-0.5 rounded-full">
                                 ✓
                             </span>
                         )}
@@ -318,27 +318,27 @@ const DeliveryAssign: React.FC = () => {
             <div className="hidden md:block max-w-7xl mx-auto px-4 py-6">
                 <div className="grid lg:grid-cols-2 gap-6">
                     {/* Desktop Orders Column */}
-                    <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div className="p-4 border-b bg-gray-50">
+                    <div className="bg-orange-50 rounded-xl shadow-md overflow-hidden border border-orange-100">
+                        <div className="p-4 border-b bg-orange-100">
                             <div className="flex items-center justify-between flex-wrap gap-2">
-                                <h2 className="text-lg font-semibold flex items-center gap-2">
-                                    <Package className="w-5 h-5 text-yellow-600" />
+                                <h2 className="text-lg font-semibold flex items-center gap-2 text-orange-900">
+                                    <Package className="w-5 h-5 text-orange-600" />
                                     Unassigned Orders
-                                    <span className="text-sm bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+                                    <span className="text-sm bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">
                                         {orders.length}
                                     </span>
                                 </h2>
                                 {orders.length > 0 && (
                                     <button
                                         onClick={selectAllOrders}
-                                        className="text-sm text-blue-600 hover:text-blue-700"
+                                        className="text-sm text-orange-700 hover:text-orange-800"
                                     >
                                         {selectedOrders.length === orders.length ? 'Deselect All' : 'Select All'}
                                     </button>
                                 )}
                             </div>
                             {selectedOrders.length > 0 && (
-                                <div className="mt-2 text-sm text-blue-600">
+                                <div className="mt-2 text-sm text-orange-700">
                                     {selectedOrders.length} order(s) selected
                                 </div>
                             )}
@@ -361,18 +361,18 @@ const DeliveryAssign: React.FC = () => {
             <div className="md:hidden">
                 {activeTab === 'orders' && (
                     <div className="p-4 pb-24">
-                        <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-                            <div className="flex items-center justify-between">
+                        <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg shadow-sm p-3 mb-4">
+                            <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <span className="text-sm font-medium">Select Orders</span>
+                                    <span className="text-sm font-semibold text-orange-800">Select Orders</span>
                                     {selectedOrders.length > 0 && (
-                                        <p className="text-xs text-blue-600 mt-1">{selectedOrders.length} selected</p>
+                                        <p className="text-xs text-orange-600 mt-1">{selectedOrders.length} selected</p>
                                     )}
                                 </div>
                                 {orders.length > 0 && (
                                     <button
                                         onClick={selectAllOrders}
-                                        className="text-sm text-blue-600 px-3 py-1 rounded-lg bg-blue-50"
+                                        className="text-sm text-orange-700 px-3 py-1 rounded-lg bg-orange-100 hover:bg-orange-200"
                                     >
                                         {selectedOrders.length === orders.length ? 'Clear' : 'Select All'}
                                     </button>
@@ -393,14 +393,16 @@ const DeliveryAssign: React.FC = () => {
                                         <div
                                             key={order.id}
                                             onClick={() => toggleOrderSelection(order.id)}
-                                            className={`bg-white rounded-lg p-4 shadow-sm border-l-4 transition-all ${
-                                                isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                                            className={`rounded-lg p-4 shadow-sm border-l-4 transition-all ${
+                                                isSelected
+                                                    ? 'border-orange-500 bg-orange-50'
+                                                    : 'border-orange-200 bg-white hover:bg-orange-50'
                                             }`}
                                         >
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                        {isSelected && <CheckCircle className="w-4 h-4 text-blue-500" />}
+                                                        {isSelected && <CheckCircle className="w-4 h-4 text-orange-600" />}
                                                         <span className="font-semibold text-sm">
                                                             #{order.order_number || order.id.slice(0, 8)}
                                                         </span>
@@ -433,7 +435,7 @@ const DeliveryAssign: React.FC = () => {
                             <div className="fixed bottom-20 left-4 right-4 z-30">
                                 <button
                                     onClick={() => setActiveTab('drivers')}
-                                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2"
+                                    className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 hover:bg-orange-700"
                                 >
                                     Next: Select Driver ({selectedOrders.length} orders)
                                     <ChevronRight className="w-5 h-5" />
@@ -445,18 +447,18 @@ const DeliveryAssign: React.FC = () => {
 
                 {activeTab === 'drivers' && (
                     <div className="p-4 pb-24">
-                        <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-                            <div className="flex items-center justify-between">
+                        <div className="bg-emerald-50 border-l-4 border-emerald-500 rounded-lg shadow-sm p-3 mb-4">
+                            <div className="flex items-center justify-between gap-3">
                                 <div>
-                                    <span className="text-sm font-medium">Select Driver</span>
+                                    <span className="text-sm font-semibold text-emerald-800">Select Driver</span>
                                     {selectedDriver && (
-                                        <p className="text-xs text-green-600 mt-1">Driver selected</p>
+                                        <p className="text-xs text-emerald-600 mt-1">Driver selected</p>
                                     )}
                                 </div>
                                 {selectedOrders.length > 0 && (
                                     <button
                                         onClick={() => setActiveTab('orders')}
-                                        className="text-sm text-gray-600 px-3 py-1 rounded-lg bg-gray-100 flex items-center gap-1"
+                                        className="text-sm text-slate-700 px-3 py-1 rounded-lg bg-white shadow-sm flex items-center gap-1 hover:bg-slate-100"
                                     >
                                         <ChevronLeft className="w-4 h-4" />
                                         Back
@@ -464,7 +466,7 @@ const DeliveryAssign: React.FC = () => {
                                 )}
                             </div>
                             {selectedOrders.length > 0 && (
-                                <div className="mt-2 text-xs text-gray-500">
+                                <div className="mt-2 text-xs text-slate-600">
                                     Assigning {selectedOrders.length} order(s)
                                 </div>
                             )}
@@ -485,18 +487,20 @@ const DeliveryAssign: React.FC = () => {
                                         <div
                                             key={driver.id}
                                             onClick={() => setSelectedDriver(driver.id)}
-                                            className={`bg-white rounded-lg p-4 shadow-sm border-l-4 transition-all ${
-                                                isSelected ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                                            className={`rounded-lg p-4 shadow-sm border-l-4 transition-all ${
+                                                isSelected
+                                                    ? 'border-emerald-600 bg-emerald-50'
+                                                    : 'border-emerald-200 bg-white hover:bg-emerald-50'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className="font-semibold text-gray-900">
+                                                        <span className="font-semibold text-emerald-900">
                                                             {driver.full_name || driver.name}
                                                         </span>
                                                         {assignedCount > 0 && (
-                                                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                                            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                                                                 {assignedCount} orders
                                                             </span>
                                                         )}
@@ -523,7 +527,7 @@ const DeliveryAssign: React.FC = () => {
                                 <button
                                     onClick={handleAssignOrders}
                                     disabled={assigning}
-                                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-700 disabled:opacity-50"
                                 >
                                     {assigning ? (
                                         <>
@@ -609,13 +613,13 @@ const DeliveryAssign: React.FC = () => {
 
     function renderDriversSelection() {
         return (
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                <div className="p-4 border-b bg-gray-50">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                        <User className="w-5 h-5 text-green-600" />
+            <div className="bg-emerald-50 rounded-xl shadow-md overflow-hidden border border-emerald-100">
+                <div className="p-4 border-b bg-emerald-100">
+                    <h2 className="text-lg font-semibold flex items-center gap-2 text-emerald-900">
+                        <User className="w-5 h-5 text-emerald-600" />
                         Select Driver
                         {selectedDriver && (
-                            <span className="text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded-full ml-2">
+                            <span className="text-sm bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full ml-2">
                                 Selected
                             </span>
                         )}
