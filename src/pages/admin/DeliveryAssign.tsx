@@ -43,6 +43,9 @@ interface OrderItem {
     optimized_sequence?: number;
     driver_id?: string | null;
     assigned_at?: string | null;
+    delivery_otp?: string;
+    delivery_otp_generated_at?: string;
+    delivery_otp_verified_at?: string;
     order_items?: Array<{
         id: string;
         quantity: number;
@@ -180,21 +183,36 @@ const DeliveryAssign: React.FC = () => {
 
         setAssigning(true);
         try {
-            // IMPORTANT: Keep status as 'pending' - not 'assigned'
-            // Driver will change to 'in_progress' when they start delivery
-            const { error } = await (supabase as any)
-                .from('orders')
-                .update({
+            // Generate OTP for each selected order
+            const otpUpdates = selectedOrders.map(orderId => {
+                const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+                return {
+                    id: orderId,
+                    delivery_otp: otp,
+                    delivery_otp_generated_at: new Date().toISOString(),
                     driver_id: selectedDriver,
                     assigned_at: new Date().toISOString(),
                     // status remains 'pending' - assignment doesn't change delivery status
-                })
-                .in('id', selectedOrders);
+                };
+            });
 
-            if (error) throw error;
+            // Update orders with OTP and assignment info
+            const updates = selectedOrders.map(orderId => ({
+    id: orderId,
+    delivery_otp: Math.floor(100000 + Math.random() * 900000).toString(),
+    delivery_otp_generated_at: new Date().toISOString(),
+    driver_id: selectedDriver,
+    assigned_at: new Date().toISOString(),
+}));
+
+const { error } = await (supabase as any)
+    .from('orders')
+    .upsert(updates, { onConflict: 'id' });
+
+if (error) throw error;
 
             const driverName = drivers.find(d => d.id === selectedDriver)?.full_name || 'Driver';
-            setShowSuccess(`Successfully assigned ${selectedOrders.length} order(s) to ${driverName}`);
+            setShowSuccess(`Successfully assigned ${selectedOrders.length} order(s) to ${driverName} with OTP generated`);
             
             setSelectedOrders([]);
             setSelectedDriver('');
