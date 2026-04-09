@@ -28,6 +28,9 @@ interface Order {
   delivery_city?: string;
   delivery_state?: string;
   delivery_zip_code?: string;
+  delivery_proof_url?: string;
+  delivery_proof_uploaded_at?: string;
+  delivery_proof_status?: string;
   payment_id?: string;
   payment_order_id?: string;
   payment_signature?: string;
@@ -386,6 +389,26 @@ const OrdersTab: React.FC = () => {
                                 </div>
                               ) : (
                                 <p className="text-xs text-slate-500">No items found for this order</p>
+                              )}
+                            </div>
+                            <div className="rounded-xl bg-slate-100 p-3 mb-4">
+                              <h5 className="font-semibold text-sm mb-2">Delivery Proof</h5>
+                              {order.delivery_proof_url ? (
+                                <div className="space-y-3">
+                                  <img
+                                    src={order.delivery_proof_url}
+                                    alt="Delivery proof"
+                                    className="w-full max-w-md rounded-xl border border-slate-200 object-cover"
+                                  />
+                                  <div className="text-xs text-slate-600">
+                                    Uploaded: {order.delivery_proof_uploaded_at ? format(new Date(order.delivery_proof_uploaded_at), 'MMM dd, yyyy HH:mm') : 'Unknown'}
+                                  </div>
+                                  <div className="text-xs text-slate-600">
+                                    Status: {order.delivery_proof_status ? order.delivery_proof_status : 'Pending'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-500">No delivery proof uploaded yet.</p>
                               )}
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center text-xs text-slate-600">
