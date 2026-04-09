@@ -21,9 +21,10 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { LogOut, Settings, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
+  const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
   const { user, signOut, isAdmin } = useAuth();
@@ -75,6 +76,19 @@ const Navbar = () => {
     { title: 'Delivery Assign', path: '/admin/delivery' },
   ];
 
+  const isActiveRoute = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  const getNavLinkClass = (path: string) =>
+    cn(
+      'px-3 py-2 text-sm font-medium transition-colors rounded-md',
+      isActiveRoute(path)
+        ? 'bg-brand-cream text-brand-red'
+        : 'text-foreground hover:bg-brand-cream hover:text-brand-red'
+    );
+
   return (
     <>
       <nav 
@@ -97,24 +111,24 @@ const Navbar = () => {
             <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
               {/* Public menu items - always visible */}
               {publicMenuItems.map((item) => (
-                <Link
+                <NavLink
                   key={item.title}
                   to={item.path}
-                  className="px-3 py-2 text-sm font-medium transition-colors rounded-md hover:bg-brand-cream hover:text-brand-red"
+                  className={() => getNavLinkClass(item.path)}
                 >
                   {item.title}
-                </Link>
+                </NavLink>
               ))}
 
               {/* Admin-only menu items - only visible when user is logged in and is admin */}
               {user && isAdmin && adminMenuItems.map((item) => (
-                <Link 
+                <NavLink
                   key={item.title}
                   to={item.path}
-                  className="px-3 py-2 text-sm font-medium transition-colors rounded-md hover:bg-brand-cream hover:text-brand-red"
+                  className={() => getNavLinkClass(item.path)}
                 >
                   {item.title}
-                </Link>
+                </NavLink>
               ))}
               
               {/* Authentication */}
