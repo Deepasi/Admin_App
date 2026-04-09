@@ -24,6 +24,8 @@ interface OrderItem {
     delivery_state?: string;
     status?: string;
     created_at?: string;
+    delivery_lat?: number;
+    delivery_lng?: number;
     latitude?: number;
     longitude?: number;
     name?: string;  // This is customer name in DB
@@ -33,6 +35,14 @@ interface OrderItem {
     city?: string;
     state?: string;
     zip_code?: string;
+    payment_method?: string;
+    payment_id?: string;
+    payment_order_id?: string;
+    payment_signature?: string;
+    delivery_slot?: string;
+    optimized_sequence?: number;
+    driver_id?: string | null;
+    assigned_at?: string | null;
     order_items?: Array<{
         id: string;
         quantity: number;
@@ -43,6 +53,11 @@ interface OrderItem {
             image?: string;
         };
     }>;
+}
+
+interface OrderGroup {
+    title: string;
+    orders: OrderItem[];
 }
 
 const DeliveryAssign: React.FC = () => {
@@ -64,13 +79,13 @@ const DeliveryAssign: React.FC = () => {
 
     const fetchDrivers = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await (supabase as any)
                 .from('drivers')
                 .select('*')
                 .order('full_name', { ascending: true });
             
             if (error) throw error;
-            setDrivers(data || []);
+            setDrivers((data || []) as DriverProfile[]);
         } catch (err) {
             console.error('Error fetching drivers:', err);
         } finally {
@@ -80,7 +95,7 @@ const DeliveryAssign: React.FC = () => {
 
     const fetchOrders = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await (supabase as any)
                 .from('orders')
                 .select(`
                     *,
@@ -100,7 +115,7 @@ const DeliveryAssign: React.FC = () => {
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
-            setOrders(data || []);
+            setOrders((data || []) as OrderItem[]);
             await fetchAssignedOrders();
         } catch (err) {
             console.error('Error fetching orders:', err);
@@ -110,7 +125,7 @@ const DeliveryAssign: React.FC = () => {
 
     const fetchAssignedOrders = async () => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await (supabase as any)
                 .from('orders')
                 .select('*')
                 .not('driver_id', 'is', null)
@@ -119,7 +134,8 @@ const DeliveryAssign: React.FC = () => {
             if (error) throw error;
             
             const grouped: Record<string, OrderItem[]> = {};
-            (data || []).forEach(order => {
+            const assigned = (data || []) as OrderItem[];
+            assigned.forEach(order => {
                 if (order.driver_id) {
                     if (!grouped[order.driver_id]) grouped[order.driver_id] = [];
                     grouped[order.driver_id].push(order);
@@ -166,7 +182,7 @@ const DeliveryAssign: React.FC = () => {
         try {
             // IMPORTANT: Keep status as 'pending' - not 'assigned'
             // Driver will change to 'in_progress' when they start delivery
-            const { error } = await supabase
+            const { error } = await (supabase as any)
                 .from('orders')
                 .update({
                     driver_id: selectedDriver,
@@ -209,21 +225,163 @@ const DeliveryAssign: React.FC = () => {
         }, 0);
     };
 
+    const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const toRad = (value: number) => (value * Math.PI) / 180;
+        const R = 6371; // Earth radius in kilometers
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    };
+
+    const getOrderCoordinates = (order: OrderItem) => {
+        if (order.delivery_lat !== undefined && order.delivery_lng !== undefined) {
+            return { lat: order.delivery_lat, lng: order.delivery_lng };
+        }
+        if (order.latitude !== undefined && order.longitude !== undefined) {
+            return { lat: order.latitude, lng: order.longitude };
+        }
+        return null;
+    };
+
+    const formatSlotTime = (slot: string) => {
+        // Format slot: capitalize first letters and remove underscores
+        // e.g., "morning_today" -> "Morning Today", "afternoon_tomorrow" -> "Afternoon Tomorrow"
+        if (!slot || slot === 'No Slot') return 'No Slot';
+        
+        return slot
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+    };
+
+    const formatOrderDate = (dateString: string | undefined) => {
+        if (!dateString) return 'Date N/A';
+        
+        const date = new Date(dateString);
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+        
+        if (dateOnly.getTime() === todayOnly.getTime()) {
+            return `Today, ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+        } else if (dateOnly.getTime() === tomorrowOnly.getTime()) {
+            return `Tomorrow, ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+        } else {
+            return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+    };
+
+    const groupOrdersBySlot = (orders: OrderItem[]) => {
+        const slotGroups: Record<string, OrderItem[]> = {};
+        orders.forEach(order => {
+            const slot = order.delivery_slot || 'No Slot';
+            if (!slotGroups[slot]) slotGroups[slot] = [];
+            slotGroups[slot].push(order);
+        });
+        return slotGroups;
+    };
+
+    const getClusterColor = (index: number) => {
+        const colors = [
+            'bg-gradient-to-r from-blue-50 to-blue-100',
+            'bg-gradient-to-r from-green-50 to-green-100',
+            'bg-gradient-to-r from-purple-50 to-purple-100',
+            'bg-gradient-to-r from-pink-50 to-pink-100',
+            'bg-gradient-to-r from-amber-50 to-amber-100',
+            'bg-gradient-to-r from-indigo-50 to-indigo-100',
+            'bg-gradient-to-r from-cyan-50 to-cyan-100',
+            'bg-gradient-to-r from-teal-50 to-teal-100',
+        ];
+        return colors[index % colors.length];
+    };
+
+    const groupOrdersByDistance = (ordersToGroup: OrderItem[], maxDistanceKm = 5): OrderGroup[] => {
+        const clusters: OrderGroup[] = [];
+        const noCoords: OrderItem[] = [];
+
+        ordersToGroup.forEach(order => {
+            const coords = getOrderCoordinates(order);
+            if (!coords) {
+                noCoords.push(order);
+                return;
+            }
+
+            let added = false;
+            for (const cluster of clusters) {
+                let isClose = false;
+
+for (const existingOrder of cluster.orders) {
+    const ref = getOrderCoordinates(existingOrder);
+    if (!ref) continue;
+
+    const distance = haversineDistance(
+        coords.lat,
+        coords.lng,
+        ref.lat,
+        ref.lng
+    );
+
+    if (distance <= maxDistanceKm) {
+        isClose = true;
+        break;
+    }
+}
+
+if (isClose) {
+    cluster.orders.push(order);
+    added = true;
+    break;
+}
+            }
+
+            if (!added) {
+                clusters.push({
+                    title: '',
+                    orders: [order],
+                });
+            }
+        });
+
+        clusters.forEach((cluster) => {
+            const firstOrder = cluster.orders[0];
+            cluster.title =
+                firstOrder?.address ||
+                firstOrder?.delivery_address ||
+                `Cluster`;
+        });
+
+        if (noCoords.length > 0) {
+            clusters.push({ title: 'Unknown location', orders: noCoords });
+        }
+
+        return clusters;
+    };
+
+    const groupedOrders = groupOrdersByDistance(orders, 5);
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-slate-200 via-blue-200 to-indigo-200 flex items-center justify-center">
                 <div className="text-center">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
-                    <p className="text-gray-600">Loading...</p>
+                    <p className="text-slate-700">Loading...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 pb-20 md:pb-0 pt-20 md:pt-24">
+        <div className="min-h-screen bg-gradient-to-br from-slate-200 via-blue-200 to-indigo-200 pb-20 md:pb-0 pt-20 md:pt-24">
             {/* Mobile Header */}
-            <div className="md:hidden sticky top-20 z-30 bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-xl border-b border-slate-700">
+           <div className="md:hidden bg-gradient-to-r from-black to-slate-900 text-white shadow-xl border-b border-slate-700">
                 <div className="px-4 py-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
@@ -284,7 +442,7 @@ const DeliveryAssign: React.FC = () => {
 
             {/* Desktop Header */}
             <div className="hidden md:block max-w-7xl mx-auto px-4 pt-6 pb-2">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg p-6">
+                <div className="bg-gradient-to-r from-black to-slate-900 text-white rounded-xl shadow-lg p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -361,73 +519,122 @@ const DeliveryAssign: React.FC = () => {
             <div className="md:hidden">
                 {activeTab === 'orders' && (
                     <div className="p-4 pb-24">
-                        <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg shadow-sm p-3 mb-4">
-                            <div className="flex items-center justify-between gap-3">
+                        <div className="bg-gradient-to-r from-orange-50 to-orange-100 border-l-4 border-orange-500 rounded-lg shadow-sm p-4 mb-4">
+                            <div className="flex items-center justify-between gap-3 mb-2">
                                 <div>
-                                    <span className="text-sm font-semibold text-orange-800">Select Orders</span>
-                                    {selectedOrders.length > 0 && (
-                                        <p className="text-xs text-orange-600 mt-1">{selectedOrders.length} selected</p>
-                                    )}
+                                    <span className="text-sm font-bold text-orange-900">📍 Nearby Orders</span>
+                                    <p className="text-xs text-orange-700 mt-1">Orders grouped by location ({groupedOrders.length} group{groupedOrders.length !== 1 ? 's' : ''})</p>
                                 </div>
                                 {orders.length > 0 && (
                                     <button
                                         onClick={selectAllOrders}
-                                        className="text-sm text-orange-700 px-3 py-1 rounded-lg bg-orange-100 hover:bg-orange-200"
+                                        className="text-sm text-orange-700 px-3 py-1 rounded-lg bg-orange-200 hover:bg-orange-300 font-semibold"
                                     >
-                                        {selectedOrders.length === orders.length ? 'Clear' : 'Select All'}
+                                        {selectedOrders.length === orders.length ? 'Clear All' : 'Select All'}
                                     </button>
                                 )}
                             </div>
+                            {selectedOrders.length > 0 && (
+                                <div className="flex items-center gap-2 pt-2 border-t border-orange-200">
+                                    <CheckCircle className="w-4 h-4 text-orange-600" />
+                                    <span className="text-xs font-semibold text-orange-800">{selectedOrders.length} of {orders.length} orders selected</span>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="space-y-3 pb-20">
-                            {orders.length === 0 ? (
+                        <div className="space-y-4 pb-20">
+                            {groupedOrders.length === 0 ? (
                                 <div className="bg-white rounded-lg p-8 text-center text-gray-500">
                                     <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500" />
                                     <p>All orders assigned!</p>
                                 </div>
                             ) : (
-                                orders.map(order => {
-                                    const isSelected = selectedOrders.includes(order.id);
-                                    return (
-                                        <div
-                                            key={order.id}
-                                            onClick={() => toggleOrderSelection(order.id)}
-                                            className={`rounded-lg p-4 shadow-sm border-l-4 transition-all ${
-                                                isSelected
-                                                    ? 'border-orange-500 bg-orange-50'
-                                                    : 'border-orange-200 bg-white hover:bg-orange-50'
-                                            }`}
-                                        >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                        {isSelected && <CheckCircle className="w-4 h-4 text-orange-600" />}
-                                                        <span className="font-semibold text-sm">
-                                                            #{order.order_number || order.id.slice(0, 8)}
-                                                        </span>
-                                                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                                                            Pending
-                                                        </span>
-                                                    </div>
-                                                    {/* FIXED: Using order.name instead of order.customer_name */}
-                                                    <div className="text-sm font-medium text-gray-800">
-                                                        {order.name || 'Customer'}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 flex items-start gap-1 mt-1">
-                                                        <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                                                        <span className="break-words">
-                                                            {order.address || order.delivery_address}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-xs font-semibold text-gray-700 mt-2">
-                                                        {formatCurrency(getOrderTotal(order))}
-                                                    </div>
+                                groupedOrders.map((group, groupIndex) => (
+                                    <div key={groupIndex} className={`rounded-2xl border-2 border-slate-200 shadow-md overflow-hidden ${getClusterColor(groupIndex)}`}>
+                                        <div className="flex items-center justify-between gap-3 px-4 py-4 bg-white/90 backdrop-blur-sm border-b-2 border-slate-200">
+                                            <div className="flex-1">
+                                                <div className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                                    📦 {group.title}
+                                                </div>
+                                                <div className="text-xs text-slate-600 mt-1">
+                                                    {group.orders.length} order{group.orders.length !== 1 ? 's' : ''} • Nearby deliveries
                                                 </div>
                                             </div>
+                                            <button
+                                                onClick={() => {
+                                                    const ids = group.orders.map(o => o.id);
+                                                    const allSelected = ids.every(id => selectedOrders.includes(id));
+                                                    if (allSelected) {
+                                                        setSelectedOrders(prev => prev.filter(id => !ids.includes(id)));
+                                                    } else {
+                                                        setSelectedOrders(prev => Array.from(new Set([...prev, ...ids])));
+                                                    }
+                                                }}
+                                                className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                                            >
+                                                {group.orders.every(o => selectedOrders.includes(o.id)) ? 'Deselect All' : 'Select All'}
+                                            </button>
                                         </div>
-                                    );
-                                })
+
+                                        <div className="space-y-4 p-4">
+                                            {Object.entries(groupOrdersBySlot(group.orders)).map(([slot, slotOrders]) => (
+                                                <div key={slot} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                                                    <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-orange-400 to-orange-500 border-b border-orange-600">
+                                                        <span className="text-sm font-bold text-black flex items-center gap-2">
+                                                            🕐 {formatSlotTime(slot)}
+                                                        </span>
+                                                        <span className="text-xs bg-white/20 text-white px-3 py-1 rounded-full font-semibold border border-white/30 backdrop-blur-sm">
+                                                            {slotOrders.length}
+                                                        </span>
+                                                    </div>
+                                                    {slotOrders.map(order => {
+                                                        const isSelected = selectedOrders.includes(order.id);
+                                                        return (
+                                                            <div
+                                                                key={order.id}
+                                                                onClick={() => toggleOrderSelection(order.id)}
+                                                                className={`border-t px-4 py-4 transition-all ${
+                                                                    isSelected
+  ? 'bg-orange-200 shadow-md ring-2 ring-orange-300 rounded-xl'
+  : 'bg-pink-50 hover:bg-pink-100 rounded-xl'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                                            {isSelected && <CheckCircle className="w-4 h-4 text-orange-600" />}
+                                                                            <span className="font-semibold text-sm">
+                                                                                #{order.order_number || order.id.slice(0, 8)}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-semibold uppercase tracking-wide bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
+                                                                                Pending
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-xs text-slate-600 mt-1 font-medium flex items-center gap-1">
+                                                                            📅 {formatOrderDate(order.created_at)}
+                                                                        </div>
+                                                                        <div className="text-sm font-medium text-slate-800 mt-1">
+                                                                            {order.name || 'Customer'}
+                                                                        </div>
+                                                                        <div className="text-xs text-slate-500 flex items-start gap-1 mt-2">
+                                                                            <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                                                                            <span className="break-words">
+                                                                                {order.address || order.delivery_address}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-xs font-semibold text-slate-700">
+                                                                        {formatCurrency(getOrderTotal(order))}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
                             )}
                         </div>
 
@@ -435,7 +642,7 @@ const DeliveryAssign: React.FC = () => {
                             <div className="fixed bottom-20 left-4 right-4 z-30">
                                 <button
                                     onClick={() => setActiveTab('drivers')}
-                                    className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 hover:bg-orange-700"
+                                    className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white py-3 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 hover:from-emerald-600 hover:to-emerald-700 transition-all"
                                 >
                                     Next: Select Driver ({selectedOrders.length} orders)
                                     <ChevronRight className="w-5 h-5" />
@@ -481,7 +688,7 @@ const DeliveryAssign: React.FC = () => {
                             ) : (
                                 drivers.map(driver => {
                                     const isSelected = selectedDriver === driver.id;
-                                    const assignedCount = assignedOrders[driver.id]?.length || 0;
+                                    const assignedCount = assignedOrders[driver.id]?.filter(order => order.status !== 'done')?.length || 0;
                                     
                                     return (
                                         <div
@@ -561,52 +768,95 @@ const DeliveryAssign: React.FC = () => {
         }
 
         return (
-            <div className="space-y-3">
-                {orders.map(order => {
-                    const isSelected = selectedOrders.includes(order.id);
-                    const orderTotal = getOrderTotal(order);
-                    
-                    return (
-                        <div
-                            key={order.id}
-                            onClick={() => toggleOrderSelection(order.id)}
-                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                                isSelected
-                                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                                    : 'border-gray-200 hover:bg-gray-50'
-                            }`}
-                        >
-                            <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                        {isSelected && <CheckCircle className="w-5 h-5 text-blue-500" />}
-                                        <span className="font-semibold text-gray-900">
-                                            Order #{order.order_number || order.id.slice(0, 8)}
-                                        </span>
-                                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                                            Pending
-                                        </span>
-                                    </div>
-                                    
-                                    {/* FIXED: Using order.name instead of order.customer_name */}
-                                    <div className="text-sm text-gray-700 mb-1">
-                                        {order.name || 'Customer'}
-                                    </div>
-                                    
-                                    <div className="text-xs text-gray-500 flex items-center gap-1 mb-1">
-                                        <MapPin className="w-3 h-3" />
-                                        {order.address || order.delivery_address}
-                                        {order.city || order.delivery_city && `, ${order.city || order.delivery_city}`}
-                                    </div>
-                                    
-                                    <div className="font-semibold text-gray-900 mt-2">
-                                        {formatCurrency(orderTotal)}
-                                    </div>
+            <div className="space-y-4">
+                {groupedOrders.map((group, groupIndex) => (
+                    <div key={groupIndex} className={`rounded-2xl border-2 border-slate-200 shadow-md overflow-hidden ${getClusterColor(groupIndex)}`}>
+                        <div className="flex items-center justify-between gap-3 px-4 py-4 bg-white/90 backdrop-blur-sm border-b-2 border-slate-200">
+                            <div className="flex-1">
+                                <div className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    📦 {group.title}
+                                </div>
+                                <div className="text-xs text-slate-600 mt-1">
+                                    {group.orders.length} order{group.orders.length !== 1 ? 's' : ''} • Nearby deliveries
                                 </div>
                             </div>
+                            <button
+                                onClick={() => {
+                                    const ids = group.orders.map(order => order.id);
+                                    const allSelected = ids.every(id => selectedOrders.includes(id));
+                                    if (allSelected) {
+                                        setSelectedOrders(prev => prev.filter(id => !ids.includes(id)));
+                                    } else {
+                                        setSelectedOrders(prev => Array.from(new Set([...prev, ...ids])));
+                                    }
+                                }}
+                                className="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                            >
+                                {group.orders.every(order => selectedOrders.includes(order.id)) ? 'Deselect All' : 'Select All'}
+                            </button>
                         </div>
-                    );
-                })}
+
+                        <div className="space-y-4 p-4">
+                            {Object.entries(groupOrdersBySlot(group.orders)).map(([slot, slotOrders]) => (
+                                <div key={slot} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                                    <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-orange-400 to-orange-500 border-b border-orange-600">
+                                        <span className="text-sm font-bold text-black flex items-center gap-2">
+                                            🕐 {formatSlotTime(slot)}
+                                        </span>
+                                        <span className="text-xs bg-white/20 text-white px-3 py-1 rounded-full font-semibold border border-white/30 backdrop-blur-sm">
+                                            {slotOrders.length}
+                                        </span>
+                                    </div>
+                                    {slotOrders.map(order => {
+                                        const isSelected = selectedOrders.includes(order.id);
+                                        const orderTotal = getOrderTotal(order);
+                                        return (
+                                            <div
+                                                key={order.id}
+                                                onClick={() => toggleOrderSelection(order.id)}
+                                                className={`border-t border-pink-200 px-4 py-4 transition-all ${
+                                                isSelected
+  ? 'bg-orange-200 shadow-md ring-2 ring-orange-300 rounded-xl'
+  : 'bg-pink-50 hover:bg-pink-100 rounded-xl'
+                                                }`}
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                            {isSelected && <CheckCircle className="w-5 h-5 text-blue-500" />}
+                                                            <span className="font-bold text-gray-900">
+                                                                Order #{order.order_number || order.id.slice(0, 8)}
+                                                            </span>
+                                                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold">
+                                                                Pending
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-600 mb-2 font-medium">
+                                                            📅 {formatOrderDate(order.created_at)}
+                                                        </div>
+                                                        <div className="text-sm font-semibold text-gray-800 mb-2">
+                                                            👤 {order.name || 'Customer'}
+                                                        </div>
+                                                        <div className="text-xs text-gray-600 flex items-start gap-1 mb-3">
+                                                            <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                                            <span className="break-words">
+                                                                {order.address || order.delivery_address}
+                                                                {(order.city || order.delivery_city) && `, ${order.city || order.delivery_city}`}
+                                                            </span>
+                                                        </div>
+                                                        <div className="font-bold text-gray-900 text-sm">
+                                                            💰 {formatCurrency(orderTotal)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
         );
     }
@@ -635,7 +885,7 @@ const DeliveryAssign: React.FC = () => {
                     ) : (
                         <div className="space-y-3">
                             {drivers.map(driver => {
-                                const assignedCount = assignedOrders[driver.id]?.length || 0;
+const assignedCount = assignedOrders[driver.id]?.filter(order => order.status !== 'done')?.length || 0;
                                 const isSelected = selectedDriver === driver.id;
                                 
                                 return (
