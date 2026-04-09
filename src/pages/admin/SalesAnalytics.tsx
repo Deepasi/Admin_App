@@ -24,6 +24,13 @@ interface Order {
   total: number;
   cancelled_at?: string;
   order_number?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
   profiles?: { name?: string; email?: string };
   // other optional fields
 }
@@ -74,7 +81,7 @@ const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
     }, {} as Record<string, number>);
 
     const deliveredOrdersCount = orders.filter(
-      o => (o.status === 'completed' || o.status === 'delivered') && !o.cancelled_at
+      o => (o.status === 'completed' || o.status === 'delivered' || o.status === 'done') && !o.cancelled_at
     ).length;
     return { totalOrders, totalRevenue, averageOrderValue, statusCounts, deliveredOrdersCount };
   };
@@ -416,7 +423,7 @@ const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
           <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Quick Stats</h3>
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
             <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-200">
-              <div className="text-xl sm:text-2xl font-bold text-indigo-600">{orders.filter(o => o.status === 'completed').length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-indigo-600">{orders.filter(o => o.status === 'completed' || o.status === 'done').length}</div>
               <div className="text-xs sm:text-sm text-indigo-600">Completed Orders</div>
             </div>
             <div className="text-center p-2 bg-yellow-50 rounded-lg border border-yellow-200">
@@ -444,7 +451,7 @@ const SalesAnalytics: React.FC<SalesAnalyticsProps> = ({ orders }) => {
                     Order #{order.order_number || order.id.slice(0, 8)}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {order.profiles?.name || (order as any).customer_name || 'Unknown Customer'}
+                    {order.name || order.profiles?.name || (order as any).customer_name || order.email || 'Unknown Customer'}
                   </div>
                   <div className="text-xs text-gray-400">
                     {format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')}
